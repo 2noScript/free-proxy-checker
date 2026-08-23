@@ -19,6 +19,33 @@ const DEFAULT_SOURCES: ProxySourceConfig[] = [
     fetchIntervalMinutes: 5,
     enabled: true,
   },
+  {
+    id: 'thespeedx-http',
+    name: 'TheSpeedX HTTP Proxies',
+    url: 'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt',
+    format: 'text_lines',
+    defaultProtocol: 'http',
+    fetchIntervalMinutes: 180,
+    enabled: true,
+  },
+  {
+    id: 'thespeedx-socks4',
+    name: 'TheSpeedX SOCKS4 Proxies',
+    url: 'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks4.txt',
+    format: 'text_lines',
+    defaultProtocol: 'socks4',
+    fetchIntervalMinutes: 180,
+    enabled: true,
+  },
+  {
+    id: 'thespeedx-socks5',
+    name: 'TheSpeedX SOCKS5 Proxies',
+    url: 'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt',
+    format: 'text_lines',
+    defaultProtocol: 'socks5',
+    fetchIntervalMinutes: 180,
+    enabled: true,
+  },
 ];
 
 export const APP_CONFIG = {
@@ -42,7 +69,7 @@ export const APP_CONFIG = {
   ],
 
   /**
-   * Load sources dynamically from mounted sources.json
+   * Load sources dynamically from mounted sources.json with auto-merge for new defaults
    */
   loadSources(): ProxySourceConfig[] {
     try {
@@ -53,17 +80,31 @@ export const APP_CONFIG = {
         fs.mkdirSync(dir, { recursive: true });
       }
 
+      let existingSources: ProxySourceConfig[] = [];
       if (fs.existsSync(filePath)) {
         const raw = fs.readFileSync(filePath, 'utf-8');
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+        if (Array.isArray(parsed)) {
+          existingSources = parsed;
         }
       }
 
-      // Auto-generate default sources.json if not present
-      fs.writeFileSync(filePath, JSON.stringify(DEFAULT_SOURCES, null, 2), 'utf-8');
-      return DEFAULT_SOURCES;
+      // Auto-merge: retain user-configured sources while ensuring new defaults are added
+      const existingIds = new Set(existingSources.map((s) => s.id));
+      let hasChanges = false;
+
+      for (const def of DEFAULT_SOURCES) {
+        if (!existingIds.has(def.id)) {
+          existingSources.push(def);
+          hasChanges = true;
+        }
+      }
+
+      if (hasChanges || !fs.existsSync(filePath)) {
+        fs.writeFileSync(filePath, JSON.stringify(existingSources, null, 2), 'utf-8');
+      }
+
+      return existingSources;
     } catch (err) {
       console.error('⚠️ [Config] Error reading sources.json, using defaults:', err);
       return DEFAULT_SOURCES;
