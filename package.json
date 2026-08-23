@@ -1,0 +1,25 @@
+{
+  "name": "free-proxy-checker",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun --watch src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/geoip-lite": "^1.4.4"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@hono/swagger-ui": "^0.6.1",
+    "geoip-lite": "^2.0.3",
+    "hono": "^4.13.3",
+    "https-proxy-agent": "^9.1.0",
+    "socks-proxy-agent": "^10.1.0"
+  }
+}

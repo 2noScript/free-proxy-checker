@@ -1,0 +1,24 @@
+services:
+  free-proxy-checker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: 2noscript/free-proxy-checker:latest
+    container_name: free-proxy-checker
+    restart: unless-stopped
+    ports:
+      - "8340:8340"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8340
+      - DB_PATH=/app/data/proxies.db
+      - CONCURRENCY_LIMIT=30
+      - MAINTENANCE_INTERVAL_MINUTES=3
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8340/api/stats"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

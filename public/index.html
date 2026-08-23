@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Free Proxy Checker - Multi-Source & Pyramid Lifecycle</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    body { background-color: #0b1329; color: #f8fafc; font-family: ui-sans-serif, system-ui, sans-serif; }
+    .glass-card { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .badge-live { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-dead { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-warn { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-socks5 { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+    .badge-http { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col p-4 md:p-8">
+  <div class="max-w-7xl w-full mx-auto space-y-6">
+    
+    <!-- Top Header -->
+    <header class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 glass-card p-6 rounded-2xl shadow-xl">
+      <div class="flex items-center gap-4">
+        <div class="p-3 bg-gradient-to-tr from-amber-500/20 to-emerald-500/20 rounded-xl border border-amber-500/30 text-2xl">
+          🛡️
+        </div>
+        <div>
+          <div class="flex items-center gap-3">
+            <h1 class="text-xl md:text-2xl font-bold bg-gradient-to-r from-amber-400 via-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+              Free Proxy Checker
+            </h1>
+            <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 animate-pulse">
+              Pyramid Lifecycle
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">
+            Multi-Source Ingestion (15m) • Continuous 3-Min Live Pool Maintenance • SQLite WAL
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 flex-wrap">
+        <a href="/swagger" target="_blank" class="px-3.5 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded-lg flex items-center gap-2 transition">
+          <i class="fa-solid fa-book"></i> Swagger API
+        </a>
+        <button onclick="triggerScan('maintenance')" class="px-3.5 py-2 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center gap-2 transition shadow-lg shadow-emerald-900/30">
+          <i class="fa-solid fa-arrows-rotate"></i> Check Live Pool (3m)
+        </button>
+        <button onclick="triggerScan('ingest')" class="px-3.5 py-2 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg flex items-center gap-2 transition">
+          <i class="fa-solid fa-cloud-arrow-down"></i> Ingest Sources (15m)
+        </button>
+      </div>
+    </header>
+
+    <!-- Real-time Progress Bar -->
+    <div id="progress-container" class="hidden glass-card p-4 rounded-xl border-amber-500/30">
+      <div class="flex justify-between text-xs font-medium mb-2">
+        <span class="text-amber-400 flex items-center gap-2">
+          <i class="fa-solid fa-spinner fa-spin"></i> Scanning Proxy Batch in Progress...
+        </span>
+        <span id="progress-text" class="text-slate-300">0 / 0</span>
+      </div>
+      <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+        <div id="progress-bar" class="bg-gradient-to-r from-amber-500 to-emerald-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Stat Metrics Grid -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="glass-card p-5 rounded-2xl">
+        <div class="text-xs font-medium text-slate-400">Total Ingested</div>
+        <div id="stat-total" class="text-2xl md:text-3xl font-black text-slate-100 mt-1">0</div>
+        <div class="text-[11px] text-slate-500 mt-1">Across all registered sources</div>
+      </div>
+      <div class="glass-card p-5 rounded-2xl border-emerald-500/20">
+        <div class="text-xs font-medium text-emerald-400">Active Live Pool</div>
+        <div id="stat-live" class="text-2xl md:text-3xl font-black text-emerald-400 mt-1">0</div>
+        <div class="text-[11px] text-emerald-500/80 mt-1">Verified & Ready for Crawlers</div>
+      </div>
+      <div class="glass-card p-5 rounded-2xl">
+        <div class="text-xs font-medium text-amber-400">Average Latency</div>
+        <div id="stat-latency" class="text-2xl md:text-3xl font-black text-amber-300 mt-1">0 ms</div>
+        <div class="text-[11px] text-slate-500 mt-1">Live proxies response time</div>
+      </div>
+      <div class="glass-card p-5 rounded-2xl">
+        <div class="text-xs font-medium text-rose-400">Dead / Demoted</div>
+        <div id="stat-dead" class="text-2xl md:text-3xl font-black text-rose-400 mt-1">0</div>
+        <div class="text-[11px] text-slate-500 mt-1">Failed $\ge$ 2 times</div>
+      </div>
+    </div>
+
+    <!-- Registered Sources Status Cards -->
+    <div class="glass-card p-6 rounded-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-bold text-slate-200 flex items-center gap-2">
+          <i class="fa-solid fa-network-wired text-indigo-400"></i> Registered Ingestion Sources
+        </h2>
+        <span class="text-xs text-slate-400" id="maint-countdown">Next 3m Maintenance: calculating...</span>
+      </div>
+      <div id="sources-list" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Injected via JS -->
+      </div>
+    </div>
+
+    <!-- Proxies Table Section -->
+    <div class="glass-card rounded-2xl overflow-hidden shadow-xl">
+      <div class="p-5 border-b border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <h3 class="font-bold text-slate-200">Verified Proxies</h3>
+          <span id="table-count" class="px-2 py-0.5 text-xs bg-slate-800 text-slate-400 rounded-md">0 items</span>
+        </div>
+
+        <div class="flex items-center gap-2.5 flex-wrap w-full md:w-auto">
+          <!-- Search Box (IP, Port, City, ISP) -->
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+            <input id="filter-search" type="text" placeholder="Search IP, Port, City..." oninput="loadProxies()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg pl-8 pr-3 py-2 outline-none w-44 focus:border-amber-500 transition">
+          </div>
+
+          <!-- Protocol Filter -->
+          <select id="filter-protocol" onchange="loadProxies()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 outline-none">
+            <option value="">All Protocols</option>
+            <option value="socks5">SOCKS5</option>
+            <option value="socks4">SOCKS4</option>
+            <option value="http">HTTP</option>
+            <option value="https">HTTPS</option>
+          </select>
+
+          <!-- Country Filter -->
+          <select id="filter-country" onchange="loadProxies()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 outline-none">
+            <option value="">All Countries</option>
+            <option value="US">🇺🇸 United States</option>
+            <option value="VN">🇻🇳 Vietnam</option>
+            <option value="CN">🇨🇳 China</option>
+            <option value="JP">🇯🇵 Japan</option>
+            <option value="SG">🇸🇬 Singapore</option>
+            <option value="HK">🇭🇰 Hong Kong</option>
+            <option value="ID">🇮🇩 Indonesia</option>
+            <option value="DE">🇩🇪 Germany</option>
+            <option value="RU">🇷🇺 Russia</option>
+            <option value="FR">🇫🇷 France</option>
+            <option value="TH">🇹🇭 Thailand</option>
+          </select>
+
+          <!-- Max Ping Filter -->
+          <select id="filter-ping" onchange="loadProxies()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 outline-none">
+            <option value="">All Pings</option>
+            <option value="300">⚡ Ping &lt; 300ms</option>
+            <option value="600">🟡 Ping &lt; 600ms</option>
+            <option value="1200">🟢 Ping &lt; 1200ms</option>
+          </select>
+
+          <!-- Status Filter -->
+          <select id="filter-status" onchange="loadProxies()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 outline-none">
+            <option value="live">Live Only</option>
+            <option value="">All Statuses</option>
+            <option value="warning">Warning</option>
+            <option value="dead">Dead</option>
+          </select>
+
+          <!-- Copy All Live -->
+          <button onclick="copyLiveProxies()" class="px-3 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-copy text-amber-400"></i> Copy Live
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-slate-300">
+          <thead class="bg-slate-900/60 text-slate-400 uppercase font-semibold border-b border-slate-800">
+            <tr>
+              <th class="p-4">Proxy Endpoint</th>
+              <th class="p-4">Protocol</th>
+              <th class="p-4">Country & Flag</th>
+              <th class="p-4">City / Region</th>
+              <th class="p-4">Ping (Latency)</th>
+              <th class="p-4">Status</th>
+              <th class="p-4">Consecutive Fails</th>
+              <th class="p-4">Last Checked</th>
+            </tr>
+          </thead>
+          <tbody id="proxy-table-body" class="divide-y divide-slate-800/60 font-mono">
+            <tr>
+              <td colspan="8" class="p-8 text-center text-slate-500 font-sans">
+                <i class="fa-solid fa-spinner fa-spin text-lg mb-2"></i><br>
+                Loading proxies from SQLite database...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let sseSource = null;
+
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/stats');
+        const data = await res.json();
+        
+        document.getElementById('stat-total').innerText = data.total.toLocaleString();
+        document.getElementById('stat-live').innerText = data.live.toLocaleString();
+        document.getElementById('stat-dead').innerText = data.dead.toLocaleString();
+        document.getElementById('stat-latency').innerText = data.avgLatency ? `${data.avgLatency} ms` : '0 ms';
+
+        // Render Sources Cards
+        const sourcesContainer = document.getElementById('sources-list');
+        sourcesContainer.innerHTML = (data.sources || []).map(s => `
+          <div class="p-4 bg-slate-900/50 rounded-xl border border-slate-800/80 flex items-center justify-between">
+            <div>
+              <div class="font-bold text-xs text-slate-200">${s.name}</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">
+                ⏱️ Interval: <span class="text-amber-400 font-bold">${s.intervalMinutes}m</span> • Last count: ${s.lastCount}
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="px-2 py-0.5 text-[10px] rounded ${s.enabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-500'}">
+                ${s.enabled ? 'Active' : 'Disabled'}
+              </span>
+            </div>
+          </div>
+        `).join('');
+
+        if (data.maintenance?.nextRunAt) {
+          const nextDate = new Date(data.maintenance.nextRunAt);
+          const diffSec = Math.max(0, Math.round((nextDate.getTime() - Date.now()) / 1000));
+          document.getElementById('maint-countdown').innerText = `Next 3m Maintenance in ~${diffSec}s`;
+        }
+      } catch (err) {}
+    }
+
+    async function loadProxies() {
+      const search = document.getElementById('filter-search').value.trim();
+      const protocol = document.getElementById('filter-protocol').value;
+      const country = document.getElementById('filter-country').value;
+      const ping = document.getElementById('filter-ping').value;
+      const status = document.getElementById('filter-status').value;
+
+      let url = status === 'live' ? `/api/proxies?` : `/api/proxies/all?`;
+      if (search) url += `search=${encodeURIComponent(search)}&`;
+      if (protocol) url += `protocol=${protocol}&`;
+      if (country) url += `country=${country}&`;
+      if (ping) url += `max_latency=${ping}&`;
+      if (status && status !== 'live') url += `status=${status}&`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const proxies = data.proxies || [];
+
+        document.getElementById('table-count').innerText = `${proxies.length} items`;
+        const tbody = document.getElementById('proxy-table-body');
+
+        if (proxies.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500 font-sans">No proxies match the current filter.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = proxies.map(p => `
+          <tr class="hover:bg-slate-800/30 transition">
+            <td class="p-4 font-semibold text-slate-100">${p.id}</td>
+            <td class="p-4">
+              <span class="px-2 py-0.5 text-[11px] rounded font-bold ${p.protocol === 'socks5' ? 'badge-socks5' : 'badge-http'}">
+                ${p.protocol.toUpperCase()}
+              </span>
+            </td>
+            <td class="p-4 font-sans flex items-center gap-1.5">
+              <span>${p.flag || '🌐'}</span>
+              <span>${p.countryName || 'Unknown'} (${p.countryCode || 'N/A'})</span>
+            </td>
+            <td class="p-4 font-sans text-slate-400">${p.city || '—'}</td>
+            <td class="p-4">
+              <span class="font-bold ${p.latencyMs < 400 ? 'text-emerald-400' : p.latencyMs < 900 ? 'text-amber-400' : 'text-rose-400'}">
+                ${p.latencyMs > 0 ? p.latencyMs + ' ms' : '—'}
+              </span>
+            </td>
+            <td class="p-4 font-sans">
+              <span class="px-2 py-0.5 text-[11px] rounded font-semibold ${p.status === 'live' ? 'badge-live' : p.status === 'warning' ? 'badge-warn' : 'badge-dead'}">
+                ${p.status.toUpperCase()}
+              </span>
+            </td>
+            <td class="p-4 text-center ${p.consecutiveFails > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'}">${p.consecutiveFails}</td>
+            <td class="p-4 text-[11px] text-slate-400 font-sans">${new Date(p.lastCheckedAt).toLocaleTimeString()}</td>
+          </tr>
+        `).join('');
+      } catch (err) {}
+    }
+
+    async function triggerScan(type) {
+      await fetch(`/api/trigger-scan?type=${type}`, { method: 'POST' });
+      document.getElementById('progress-container').classList.remove('hidden');
+    }
+
+    async function copyLiveProxies() {
+      const res = await fetch('/api/proxies/raw');
+      const text = await res.text();
+      navigator.clipboard.writeText(text);
+      alert(`Copied ${text.split('\\n').filter(Boolean).length} live proxies to clipboard!`);
+    }
+
+    function initSSE() {
+      sseSource = new EventSource('/api/events');
+      sseSource.addEventListener('progress', (e) => {
+        const data = JSON.parse(e.data);
+        const container = document.getElementById('progress-container');
+        container.classList.remove('hidden');
+
+        const pct = Math.round((data.checked / data.total) * 100);
+        document.getElementById('progress-bar').style.width = `${pct}%`;
+        document.getElementById('progress-text').innerText = `${data.checked} / ${data.total} (${data.live} live, ${data.dead} dead)`;
+
+        if (data.checked >= data.total) {
+          setTimeout(() => {
+            container.classList.add('hidden');
+            loadStats();
+            loadProxies();
+          }, 2000);
+        }
+      });
+    }
+
+    // Initialize
+    loadStats();
+    loadProxies();
+    initSSE();
+    setInterval(() => {
+      loadStats();
+      loadProxies();
+    }, 15000);
+  </script>
+</body>
+</html>
