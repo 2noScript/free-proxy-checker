@@ -4,14 +4,7 @@
 
 ![Free Proxy Checker UI](docs/checker.png)
 
-[![Bun Version](https://img.shields.io/badge/Bun-v1.2+-fbf0df?logo=bun&logoColor=black)](https://bun.sh)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Hono Framework](https://img.shields.io/badge/Hono-v4+-E36002?logo=hono&logoColor=white)](https://hono.dev/)
-[![SQLite](https://img.shields.io/badge/SQLite-WAL%20Mode-003B57?logo=sqlite&logoColor=white)](https://sqlite.org/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-*A blazing-fast, self-hosted, multi-source Free Proxy Aggregator, Validator, and Pool Manager powered by Bun, SQLite WAL, and Hono.*
+An automated high-performance proxy aggregator, validator, and live pool manager featuring dual-stream parallel screening, multi-source ingestion, real-time socket latency checking, and persistent SQLite WAL storage.
 
 </div>
 
@@ -89,7 +82,6 @@ Configure application settings via environment variables or a `.env` file:
 | `PORT` | `8340` | Server listening port |
 | `HOST` | `0.0.0.0` | Server host binding address |
 | `DB_PATH` | `data/proxies.db` | Path to the SQLite database file |
-| `SOURCES_FILE_PATH` | `data/sources.json` | Path to upstream proxy sources config |
 | `CONCURRENCY_LIMIT` | `30` | Maximum concurrent background health checks |
 | `TIMEOUT_MS` | `2500` | Socket connection timeout in milliseconds |
 | `MAINTENANCE_INTERVAL_MINUTES` | `3` | Interval between background re-validation cycles |
@@ -97,23 +89,45 @@ Configure application settings via environment variables or a `.env` file:
 
 ---
 
-## 📡 API Reference
+## 📡 API Reference & cURL Examples
 
-Complete interactive schemas and request builders are available at `/swagger`.
+Interactive OpenAPI 3.1.0 schemas, parameters, and live request builders are available at:
 
-### Key Endpoints
+👉 **[Swagger UI Documentation](http://localhost:8340/swagger)** (`/swagger` or `/doc`)
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/stats` | System metrics, proxy status counts, and source sync times |
-| `GET` | `/api/proxies` | Retrieve active live proxies (`protocol`, `country`, `anonymity`, `max_latency`) |
-| `GET` | `/api/proxies/all` | Paginated proxy inventory including active, slow, and dead proxies |
-| `GET` | `/api/proxies/raw` | Plain text output (`format=url` or `format=ip_port`) for automated crawlers |
-| `POST` | `/api/check-single` | Test a single proxy on-demand (`{"proxy": "socks5://1.2.3.4:1080"}`) |
-| `GET` | `/api/sources` | Retrieve configured upstream proxy sources |
-| `POST` | `/api/sources` | Register a new upstream proxy source list |
-| `POST` | `/api/trigger-scan` | Manually trigger a background maintenance or ingest cycle |
-| `GET` | `/api/events` | Real-time Server-Sent Events (SSE) progress feed |
+### Quick cURL Usage
+
+#### 1. Retrieve Verified Live Proxies (JSON)
+
+```bash
+# Get all verified live proxies (sorted by lowest latency)
+curl -s http://127.0.0.1:8340/api/proxies
+
+# Filter by SOCKS5 protocol and Latency <= 300ms
+curl -s "http://127.0.0.1:8340/api/proxies?protocol=socks5&max_latency=300"
+
+# Filter by Country and Elite Anonymity
+curl -s "http://127.0.0.1:8340/api/proxies?country=US&anonymity=elite"
+
+# Filter by Specific Source ID
+curl -s "http://127.0.0.1:8340/api/proxies?source_id=iplocate-all"
+```
+
+#### 2. Export Raw Text Lines (Crawler & Scraper Ready)
+
+```bash
+# Export as protocol URLs (socks5://ip:port or http://ip:port)
+curl -s http://127.0.0.1:8340/api/proxies/raw
+
+# Export as plain ip:port format
+curl -s "http://127.0.0.1:8340/api/proxies/raw?format=ip_port"
+```
+
+#### 3. System Metrics & Dual-Stream Status
+
+```bash
+curl -s http://127.0.0.1:8340/api/stats
+```
 
 ---
 
