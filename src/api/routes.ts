@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { streamSSE } from 'hono/streaming';
-import { queueRunner } from '../checker/queue-runner';
+import { ingestionRunner, maintenanceRunner } from '../checker/queue-runner';
 import { socketChecker } from '../checker/socket-checker';
 import { db } from '../db';
 import { geoService } from '../services/geoip.service';
@@ -19,7 +19,7 @@ export function createApiRouter() {
   app.get('/swagger', (c) => c.html(renderSwaggerUI()));
   app.get('/doc', (c) => c.html(renderSwaggerUI()));
 
-  // 1. Stats & Health Overview
+  // 1. Stats & Health Overview (Dual Streams)
   app.get('/api/stats', (c) => {
     const stats = db.getStats();
     const sources = scheduler.getSources().map((s) => ({
@@ -31,12 +31,13 @@ export function createApiRouter() {
       lastCount: s.lastFetchedCount || 0,
       enabled: s.enabled,
     }));
-    const maintenance = scheduler.getMaintenanceStatus();
+    const schedulerStatus = scheduler.getStatus();
 
     return c.json({
       ...stats,
       sources,
-      maintenance,
+      ingestion: schedulerStatus.ingestion,
+      maintenance: schedulerStatus.maintenance,
       timestamp: new Date().toISOString(),
     });
   });
@@ -48,9 +49,10 @@ export function createApiRouter() {
     const ip = c.req.query('ip');
     const search = c.req.query('search') || c.req.query('q');
     const anonymity = c.req.query('anonymity');
+    const sourceId = c.req.query('source_id') || c.req.query('source');
     const maxLatency = c.req.query('max_latency') ? Number(c.req.query('max_latency')) : undefined;
 
-    const proxies = db.getLiveProxies({ protocol, country, ip, search, anonymity, maxLatency });
+    const proxies = db.getLiveProxies({ protocol, country, ip, search, anonymity, sourceId, maxLatency });
     return c.json({
       count: proxies.length,
       proxies,
@@ -65,11 +67,12 @@ export function createApiRouter() {
     const ip = c.req.query('ip');
     const search = c.req.query('search') || c.req.query('q');
     const anonymity = c.req.query('anonymity');
+    const sourceId = c.req.query('source_id') || c.req.query('source');
     const maxLatency = c.req.query('max_latency') ? Number(c.req.query('max_latency')) : undefined;
     const limit = c.req.query('limit') ? Number(c.req.query('limit')) : 100;
     const offset = c.req.query('offset') ? Number(c.req.query('offset')) : 0;
 
-    const proxies = db.getAllProxies({ status, protocol, country, ip, search, anonymity, maxLatency, limit, offset });
+    const proxies = db.getAllProxies({ status, protocol, country, ip, search, anonymity, sourceId, maxLatency, limit, offset });
     return c.json({
       count: proxies.length,
       proxies,
@@ -118,14 +121,39 @@ export function createApiRouter() {
     }
   });
 
+  app.patch('/api/sources/:id', async (c) => {
+    try {
+      const id = c.req.param('id');
+      const body = (await c.req.json()) as Partial<ProxySourceConfig>;
+      const updated = scheduler.updateSource(id, body);
+      if (!updated) {
+        return c.json({ error: `Source not found: ${id}` }, 404);
+      }
+      return c.json({ success: true, message: `Source [${id}] updated` });
+    } catch (err: any) {
+      return c.json({ error: err?.message || 'Invalid JSON' }, 400);
+    }
+  });
+
+  app.delete('/api/sources/:id', (c) => {
+    const id = c.req.param('id');
+    const deleted = scheduler.deleteSource(id);
+    if (!deleted) {
+      return c.json({ error: `Source not found: ${id}` }, 404);
+    }
+    return c.json({ success: true, message: `Source [${id}] deleted` });
+  });
+
   // 6. Manual Scan Trigger
   app.post('/api/trigger-scan', async (c) => {
     const type = c.req.query('type') || 'maintenance';
+    const sourceId = c.req.query('source_id');
+
     if (type === 'ingest') {
       const sources = scheduler.getSources();
-      const firstSource = sources[0];
-      if (firstSource) {
-        scheduler.triggerSourceIngestion(firstSource);
+      const targetSource = sourceId ? sources.find((s) => s.id === sourceId) : sources[0];
+      if (targetSource) {
+        scheduler.triggerSourceIngestion(targetSource);
       }
     } else {
       scheduler.triggerMaintenanceCycle();
@@ -187,14 +215,21 @@ export function createApiRouter() {
     return streamSSE(c, async (stream) => {
       await stream.writeSSE({ event: 'connected', data: JSON.stringify({ message: 'Connected to Proxy Checker SSE' }) });
 
-      const unsubscribe = queueRunner.subscribeProgress(async (progress) => {
+      const unsubIngest = ingestionRunner.subscribeProgress(async (progress) => {
+        try {
+          await stream.writeSSE({ event: 'progress', data: JSON.stringify(progress) });
+        } catch {}
+      });
+
+      const unsubMaint = maintenanceRunner.subscribeProgress(async (progress) => {
         try {
           await stream.writeSSE({ event: 'progress', data: JSON.stringify(progress) });
         } catch {}
       });
 
       stream.onAbort(() => {
-        unsubscribe();
+        unsubIngest();
+        unsubMaint();
       });
 
       while (true) {

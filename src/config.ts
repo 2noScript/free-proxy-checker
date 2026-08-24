@@ -1,8 +1,6 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import type { ProxySourceConfig } from './types';
 
-const DEFAULT_SOURCES: ProxySourceConfig[] = [
+export const DEFAULT_SOURCES: ProxySourceConfig[] = [
   {
     id: 'iplocate-all',
     name: 'IPLocate Global Free Proxies',
@@ -52,7 +50,6 @@ export const APP_CONFIG = {
   PORT: Number(process.env.PORT || 8340),
   HOST: process.env.HOST || '0.0.0.0',
   DB_PATH: process.env.DB_PATH || 'data/proxies.db',
-  SOURCES_FILE_PATH: process.env.SOURCES_FILE_PATH || 'data/sources.json',
 
   // Pyramid Lifecycle & Concurrency
   MAINTENANCE_INTERVAL_MINUTES: Number(process.env.MAINTENANCE_INTERVAL_MINUTES || 3),
@@ -67,59 +64,4 @@ export const APP_CONFIG = {
     'https://icanhazip.com',
     'https://httpbin.org/ip',
   ],
-
-  /**
-   * Load sources dynamically from mounted sources.json with auto-merge for new defaults
-   */
-  loadSources(): ProxySourceConfig[] {
-    try {
-      const filePath = APP_CONFIG.SOURCES_FILE_PATH;
-      const dir = path.dirname(filePath);
-
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-
-      let existingSources: ProxySourceConfig[] = [];
-      if (fs.existsSync(filePath)) {
-        const raw = fs.readFileSync(filePath, 'utf-8');
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          existingSources = parsed;
-        }
-      }
-
-      // Auto-merge: retain user-configured sources while ensuring new defaults are added
-      const existingIds = new Set(existingSources.map((s) => s.id));
-      let hasChanges = false;
-
-      for (const def of DEFAULT_SOURCES) {
-        if (!existingIds.has(def.id)) {
-          existingSources.push(def);
-          hasChanges = true;
-        }
-      }
-
-      if (hasChanges || !fs.existsSync(filePath)) {
-        fs.writeFileSync(filePath, JSON.stringify(existingSources, null, 2), 'utf-8');
-      }
-
-      return existingSources;
-    } catch (err) {
-      console.error('⚠️ [Config] Error reading sources.json, using defaults:', err);
-      return DEFAULT_SOURCES;
-    }
-  },
-
-  /**
-   * Save sources dynamically to mounted sources.json
-   */
-  saveSources(sources: ProxySourceConfig[]) {
-    try {
-      const filePath = APP_CONFIG.SOURCES_FILE_PATH;
-      fs.writeFileSync(filePath, JSON.stringify(sources, null, 2), 'utf-8');
-    } catch (err) {
-      console.error('⚠️ [Config] Error saving sources.json:', err);
-    }
-  },
 };

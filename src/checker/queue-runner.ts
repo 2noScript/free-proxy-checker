@@ -12,16 +12,31 @@ export interface CheckQueueItem {
   sourceId: string;
 }
 
+export interface QueueProgressEvent {
+  stream?: 'ingest' | 'maint';
+  jobName?: string;
+  checked: number;
+  total: number;
+  live: number;
+  dead: number;
+}
+
 export class QueueRunner {
   private isRunning = false;
-  private progressListeners = new Set<(progress: { checked: number; total: number; live: number; dead: number }) => void>();
+  private currentJobName?: string;
+  private streamType: 'ingest' | 'maint';
+  private progressListeners = new Set<(progress: QueueProgressEvent) => void>();
 
-  subscribeProgress(cb: (progress: { checked: number; total: number; live: number; dead: number }) => void) {
+  constructor(streamType: 'ingest' | 'maint' = 'ingest') {
+    this.streamType = streamType;
+  }
+
+  subscribeProgress(cb: (progress: QueueProgressEvent) => void) {
     this.progressListeners.add(cb);
     return () => this.progressListeners.delete(cb);
   }
 
-  private notifyProgress(progress: { checked: number; total: number; live: number; dead: number }) {
+  private notifyProgress(progress: QueueProgressEvent) {
     for (const cb of this.progressListeners) {
       try {
         cb(progress);
@@ -29,13 +44,30 @@ export class QueueRunner {
     }
   }
 
+  getIsRunning(): boolean {
+    return this.isRunning;
+  }
+
+  getCurrentJobName(): string | undefined {
+    return this.currentJobName;
+  }
+
+  getStreamType(): 'ingest' | 'maint' {
+    return this.streamType;
+  }
+
   /**
    * Run concurrent batch verification with controlled concurrency limit
    */
-  async runBatch(items: CheckQueueItem[], concurrency = APP_CONFIG.CONCURRENCY_LIMIT): Promise<{ liveCount: number; deadCount: number }> {
+  async runBatch(
+    items: CheckQueueItem[],
+    concurrency = APP_CONFIG.CONCURRENCY_LIMIT,
+    jobName?: string
+  ): Promise<{ liveCount: number; deadCount: number }> {
     if (items.length === 0) return { liveCount: 0, deadCount: 0 };
 
     this.isRunning = true;
+    this.currentJobName = jobName;
     let checked = 0;
     let liveCount = 0;
     let deadCount = 0;
@@ -63,7 +95,14 @@ export class QueueRunner {
           checked++;
 
           if (checked % 5 === 0 || checked === total) {
-            this.notifyProgress({ checked, total, live: liveCount, dead: deadCount });
+            this.notifyProgress({
+              stream: this.streamType,
+              jobName: this.currentJobName,
+              checked,
+              total,
+              live: liveCount,
+              dead: deadCount,
+            });
           }
         } catch (err) {
           deadCount++;
@@ -72,18 +111,27 @@ export class QueueRunner {
       }
     };
 
-    const workers = Array.from({ length: Math.min(concurrency, items.length) }, () => worker());
-    await Promise.all(workers);
+    try {
+      const workers = Array.from({ length: Math.min(concurrency, items.length) }, () => worker());
+      await Promise.all(workers);
+    } finally {
+      this.isRunning = false;
+      this.currentJobName = undefined;
+    }
 
-    this.isRunning = false;
-    this.notifyProgress({ checked, total, live: liveCount, dead: deadCount });
+    this.notifyProgress({
+      stream: this.streamType,
+      jobName,
+      checked,
+      total,
+      live: liveCount,
+      dead: deadCount,
+    });
 
     return { liveCount, deadCount };
   }
-
-  getIsRunning(): boolean {
-    return this.isRunning;
-  }
 }
 
-export const queueRunner = new QueueRunner();
+export const ingestionRunner = new QueueRunner('ingest');
+export const maintenanceRunner = new QueueRunner('maint');
+export const queueRunner = ingestionRunner;

@@ -1,8 +1,8 @@
 import { Database as SqliteDatabase } from 'bun:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
-import { APP_CONFIG } from './config';
-import type { CheckResult, GeoInfo, ProxyRecord, ProxyStatus } from './types';
+import { APP_CONFIG, DEFAULT_SOURCES } from './config';
+import type { CheckResult, GeoInfo, ProxyRecord, ProxySourceConfig, ProxyStatus } from './types';
 
 export class DatabaseManager {
   private db: SqliteDatabase | null = null;
@@ -49,7 +49,44 @@ export class DatabaseManager {
         CREATE INDEX IF NOT EXISTS idx_proxies_protocol ON proxies(protocol);
         CREATE INDEX IF NOT EXISTS idx_proxies_country ON proxies(country_code);
         CREATE INDEX IF NOT EXISTS idx_proxies_latency ON proxies(latency_ms);
+
+        CREATE TABLE IF NOT EXISTS sources (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          url TEXT NOT NULL,
+          format TEXT DEFAULT 'text_lines',
+          default_protocol TEXT,
+          fetch_interval_minutes INTEGER DEFAULT 15,
+          enabled INTEGER DEFAULT 1,
+          headers TEXT DEFAULT '{}',
+          last_fetched_at TEXT,
+          next_fetch_at TEXT,
+          last_fetched_count INTEGER DEFAULT 0
+        );
       `);
+
+      // Auto-seed DEFAULT_SOURCES into SQLite if not already present
+      const insertSourceStmt = this.db.prepare(`
+        INSERT OR IGNORE INTO sources (
+          id, name, url, format, default_protocol, fetch_interval_minutes, enabled, next_fetch_at, last_fetched_count
+        ) VALUES (
+          $id, $name, $url, $format, $default_protocol, $fetch_interval_minutes, $enabled, $next_fetch_at, 0
+        );
+      `);
+
+      const now = new Date().toISOString();
+      for (const def of DEFAULT_SOURCES) {
+        insertSourceStmt.run({
+          $id: def.id,
+          $name: def.name,
+          $url: def.url,
+          $format: def.format || 'text_lines',
+          $default_protocol: def.defaultProtocol || null,
+          $fetch_interval_minutes: def.fetchIntervalMinutes || 15,
+          $enabled: def.enabled !== false ? 1 : 0,
+          $next_fetch_at: now,
+        });
+      }
 
       console.log(`🗄️ [SQLite Database] Connected successfully to ${APP_CONFIG.DB_PATH} (WAL Mode)`);
     } catch (err) {
@@ -190,6 +227,15 @@ export class DatabaseManager {
   }
 
   /**
+   * Permanently purge all dead proxies from SQLite database
+   */
+  pruneDeadProxies(): number {
+    if (!this.db) return 0;
+    const res = this.db.prepare("DELETE FROM proxies WHERE status = 'dead'").run();
+    return res.changes;
+  }
+
+  /**
    * Get all live proxies (sorted by fastest latency)
    */
   getLiveProxies(filter?: {
@@ -199,6 +245,7 @@ export class DatabaseManager {
     ip?: string;
     search?: string;
     anonymity?: string;
+    sourceId?: string;
   }): ProxyRecord[] {
     if (!this.db) return [];
 
@@ -212,6 +259,10 @@ export class DatabaseManager {
     if (filter?.country) {
       query += ` AND country_code = ?`;
       params.push(filter.country.toUpperCase());
+    }
+    if (filter?.sourceId) {
+      query += ` AND source_id = ?`;
+      params.push(filter.sourceId);
     }
     if (filter?.ip) {
       query += ` AND ip LIKE ?`;
@@ -248,6 +299,7 @@ export class DatabaseManager {
     search?: string;
     maxLatency?: number;
     anonymity?: string;
+    sourceId?: string;
     limit?: number;
     offset?: number;
   }): ProxyRecord[] {
@@ -267,6 +319,10 @@ export class DatabaseManager {
     if (filter?.country) {
       query += ' AND country_code = ?';
       params.push(filter.country.toUpperCase());
+    }
+    if (filter?.sourceId) {
+      query += ' AND source_id = ?';
+      params.push(filter.sourceId);
     }
     if (filter?.ip) {
       query += ' AND ip LIKE ?';
@@ -337,6 +393,125 @@ export class DatabaseManager {
       avgLatency: Math.round(totalRow?.avg_latency || 0),
       byProtocol,
       byCountry,
+    };
+  }
+
+  // ==========================================
+  // Sources Management in SQLite
+  // ==========================================
+
+  getSources(): ProxySourceConfig[] {
+    if (!this.db) return [];
+    const rows = this.db.prepare('SELECT * FROM sources ORDER BY id ASC').all() as any[];
+    return rows.map((r) => this.mapRowToSource(r));
+  }
+
+  getSourceById(id: string): ProxySourceConfig | null {
+    if (!this.db) return null;
+    const row = this.db.prepare('SELECT * FROM sources WHERE id = ?').get(id) as any;
+    return row ? this.mapRowToSource(row) : null;
+  }
+
+  insertSource(source: ProxySourceConfig): void {
+    if (!this.db) return;
+    const stmt = this.db.prepare(`
+      INSERT INTO sources (
+        id, name, url, format, default_protocol, fetch_interval_minutes, enabled, headers, next_fetch_at, last_fetched_count
+      ) VALUES (
+        $id, $name, $url, $format, $default_protocol, $fetch_interval_minutes, $enabled, $headers, $next_fetch_at, $last_fetched_count
+      );
+    `);
+
+    stmt.run({
+      $id: source.id,
+      $name: source.name,
+      $url: source.url,
+      $format: source.format || 'text_lines',
+      $default_protocol: source.defaultProtocol || null,
+      $fetch_interval_minutes: source.fetchIntervalMinutes || 15,
+      $enabled: source.enabled !== false ? 1 : 0,
+      $headers: JSON.stringify(source.headers || {}),
+      $next_fetch_at: source.nextFetchAt || new Date().toISOString(),
+      $last_fetched_count: source.lastFetchedCount || 0,
+    });
+  }
+
+  updateSource(id: string, updates: Partial<ProxySourceConfig>): boolean {
+    if (!this.db) return false;
+    const existing = this.getSourceById(id);
+    if (!existing) return false;
+
+    const merged: ProxySourceConfig = {
+      ...existing,
+      ...updates,
+      id: existing.id,
+      name: updates.name ?? existing.name,
+      url: updates.url ?? existing.url,
+      format: updates.format ?? existing.format,
+      fetchIntervalMinutes: updates.fetchIntervalMinutes ?? existing.fetchIntervalMinutes,
+      enabled: updates.enabled ?? existing.enabled,
+    };
+
+    const stmt = this.db.prepare(`
+      UPDATE sources SET
+        name = $name,
+        url = $url,
+        format = $format,
+        default_protocol = $default_protocol,
+        fetch_interval_minutes = $fetch_interval_minutes,
+        enabled = $enabled,
+        headers = $headers,
+        last_fetched_at = $last_fetched_at,
+        next_fetch_at = $next_fetch_at,
+        last_fetched_count = $last_fetched_count
+      WHERE id = $id;
+    `);
+
+    stmt.run({
+      $id: merged.id,
+      $name: merged.name,
+      $url: merged.url,
+      $format: merged.format || 'text_lines',
+      $default_protocol: merged.defaultProtocol || null,
+      $fetch_interval_minutes: merged.fetchIntervalMinutes || 15,
+      $enabled: merged.enabled ? 1 : 0,
+      $headers: JSON.stringify(merged.headers || {}),
+      $last_fetched_at: merged.lastFetchedAt || null,
+      $next_fetch_at: merged.nextFetchAt || null,
+      $last_fetched_count: merged.lastFetchedCount || 0,
+    });
+
+    return true;
+  }
+
+  deleteSource(id: string): boolean {
+    if (!this.db) return false;
+    const res = this.db.prepare('DELETE FROM sources WHERE id = ?').run(id);
+    return res.changes > 0;
+  }
+
+  private mapRowToSource(row: any): ProxySourceConfig {
+    let headers: Record<string, string> | undefined;
+    if (row.headers) {
+      try {
+        headers = JSON.parse(row.headers);
+      } catch {
+        headers = undefined;
+      }
+    }
+
+    return {
+      id: row.id,
+      name: row.name,
+      url: row.url,
+      format: row.format || 'text_lines',
+      defaultProtocol: row.default_protocol || undefined,
+      fetchIntervalMinutes: row.fetch_interval_minutes || 15,
+      enabled: row.enabled === 1,
+      headers,
+      lastFetchedAt: row.last_fetched_at || undefined,
+      nextFetchAt: row.next_fetch_at || undefined,
+      lastFetchedCount: row.last_fetched_count || 0,
     };
   }
 

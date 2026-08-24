@@ -1,111 +1,173 @@
 import { APP_CONFIG } from '../config';
 import { db } from '../db';
-import { queueRunner } from '../checker/queue-runner';
+import { ingestionRunner, maintenanceRunner } from '../checker/queue-runner';
 import { sourceFetcher } from '../sources/source-fetcher';
 import type { ProxySourceConfig } from '../types';
 
 export class PyramidScheduler {
   private sources: ProxySourceConfig[] = [];
+
+  // Stream 1: Source Ingestion State
+  private isIngestionRunning = false;
+  private activeIngestionTask: string | null = null;
+  private ingestionTimer: Timer | null = null;
+
+  // Stream 2: 3-Min Live Pool Maintenance State
   private isMaintenanceRunning = false;
-  private isSourceIngestionRunning = false;
-  private timer: Timer | null = null;
+  private activeMaintenanceTask: string | null = null;
+  private maintenanceTimer: Timer | null = null;
   private lastMaintenanceRunAt?: string;
   private nextMaintenanceRunAt?: string;
 
   constructor() {
-    this.sources = APP_CONFIG.loadSources();
+    this.sources = db.getSources();
     const now = Date.now();
+
     for (const src of this.sources) {
-      // Trigger initial fetch immediately on startup
-      src.nextFetchAt = new Date(now).toISOString();
-      src.lastFetchedCount = 0;
+      if (!src.nextFetchAt || Number.isNaN(new Date(src.nextFetchAt).getTime())) {
+        src.nextFetchAt = new Date(now).toISOString();
+        db.updateSource(src.id, { nextFetchAt: src.nextFetchAt });
+      }
+      if (src.lastFetchedCount === undefined) {
+        src.lastFetchedCount = 0;
+      }
     }
+
     this.nextMaintenanceRunAt = new Date(now + APP_CONFIG.MAINTENANCE_INTERVAL_MINUTES * 60 * 1000).toISOString();
   }
 
   start() {
-    console.log('⏱️ [Pyramid Scheduler] Initializing Multi-Source & 3-Min Maintenance Timers...');
+    console.log('⏱️ [Pyramid Scheduler] Initializing Dual-Stream Parallel Engine...');
+    console.log('⚡ Stream 1: Ingestion Loop (Every 5s tick)');
+    console.log('🔄 Stream 2: Maintenance Loop (Dedicated 3-Min Live Pool interval)');
 
-    // Run master loop tick every 10 seconds
-    this.timer = setInterval(() => {
-      this.tick();
-    }, 10000);
+    // 1. Ingestion Loop (Every 5 seconds)
+    this.ingestionTimer = setInterval(() => {
+      this.tickIngestion();
+    }, 5000);
 
-    // Initial immediate tick
-    setTimeout(() => this.tick(), 1000);
+    // 2. Maintenance Loop (Every 5 seconds check due time)
+    this.maintenanceTimer = setInterval(() => {
+      this.tickMaintenance();
+    }, 5000);
+
+    // Initial immediate ticks
+    setTimeout(() => this.tickIngestion(), 1000);
+    setTimeout(() => this.tickMaintenance(), 2000);
   }
 
   stop() {
-    if (this.timer) {
-      clearInterval(this.timer);
-      this.timer = null;
+    if (this.ingestionTimer) {
+      clearInterval(this.ingestionTimer);
+      this.ingestionTimer = null;
+    }
+    if (this.maintenanceTimer) {
+      clearInterval(this.maintenanceTimer);
+      this.maintenanceTimer = null;
     }
   }
 
-  private async tick() {
+  // =========================================================================
+  // STREAM 1: SOURCE INGESTION & CANDIDATE SCREENING
+  // =========================================================================
+
+  async tickIngestion() {
+    if (this.isIngestionRunning || ingestionRunner.getIsRunning()) {
+      return;
+    }
+
+    this.sources = db.getSources();
     const now = Date.now();
 
-    // 1. Check if any Source is due for Ingestion (e.g. 15m, 30m...)
-    if (!this.isSourceIngestionRunning) {
-      for (const src of this.sources) {
-        if (!src.enabled) continue;
-        const nextTime = src.nextFetchAt ? new Date(src.nextFetchAt).getTime() : 0;
+    const dueSources = this.sources
+      .filter((s) => s.enabled && (!s.nextFetchAt || now >= new Date(s.nextFetchAt).getTime()))
+      .sort((a, b) => {
+        const timeA = a.nextFetchAt ? new Date(a.nextFetchAt).getTime() : 0;
+        const timeB = b.nextFetchAt ? new Date(b.nextFetchAt).getTime() : 0;
+        return timeA - timeB;
+      });
 
-        if (now >= nextTime) {
-          this.triggerSourceIngestion(src);
-          break; // Process one source at a time
-        }
-      }
-    }
-
-    // 2. Check if Maintenance Cycle is due (Every 3 minutes)
-    if (!this.isMaintenanceRunning) {
-      const nextMaint = this.nextMaintenanceRunAt ? new Date(this.nextMaintenanceRunAt).getTime() : 0;
-      if (now >= nextMaint) {
-        this.triggerMaintenanceCycle();
-      }
+    if (dueSources.length > 0 && dueSources[0]) {
+      const targetSource = dueSources[0];
+      await this.triggerSourceIngestion(targetSource);
     }
   }
 
-  /**
-   * Tầng 1 & 2: Ingestion & Initial Fast Screening from Source
-   */
   async triggerSourceIngestion(source: ProxySourceConfig) {
-    this.isSourceIngestionRunning = true;
-    const now = new Date();
-    source.lastFetchedAt = now.toISOString();
-    source.nextFetchAt = new Date(now.getTime() + source.fetchIntervalMinutes * 60 * 1000).toISOString();
+    if (this.isIngestionRunning) return;
+    this.isIngestionRunning = true;
+    this.activeIngestionTask = `Ingestion: ${source.name}`;
 
-    console.log(`🚀 [Ingestion Cycle] Triggering source [${source.name}] (Interval: ${source.fetchIntervalMinutes}m)...`);
+    console.log(`🚀 [Ingestion Cycle] Starting source [${source.name}] (Interval: ${source.fetchIntervalMinutes}m)...`);
 
     try {
       const rawItems = await sourceFetcher.fetchSource(source);
       source.lastFetchedCount = rawItems.length;
+      source.lastFetchedAt = new Date().toISOString();
+
+      db.updateSource(source.id, {
+        lastFetchedCount: source.lastFetchedCount,
+        lastFetchedAt: source.lastFetchedAt,
+      });
 
       if (rawItems.length > 0) {
-        // Save initial candidates to DB
         db.batchUpsertRawProxies(rawItems);
 
-        // Run Screening verification batch
         console.log(`🧪 [Screening Tier] Verifying ${rawItems.length} candidate proxies from [${source.name}]...`);
-        const { liveCount, deadCount } = await queueRunner.runBatch(rawItems, APP_CONFIG.CONCURRENCY_LIMIT);
+        const { liveCount, deadCount } = await ingestionRunner.runBatch(
+          rawItems,
+          APP_CONFIG.CONCURRENCY_LIMIT,
+          `Screening: ${source.name}`
+        );
         console.log(`✅ [Screening Tier Done] [${source.name}]: ${liveCount} Live | ${deadCount} Dead`);
+
+        // Automatically purge dead candidate proxies
+        const pruned = db.pruneDeadProxies();
+        if (pruned > 0) {
+          console.log(`🧹 [Auto-Prune] Purged ${pruned} dead candidate proxies from DB.`);
+        }
       }
     } catch (err: any) {
       console.error(`❌ [Ingestion Error] [${source.name}]:`, err?.message || err);
     } finally {
-      this.isSourceIngestionRunning = false;
+      const finishTime = Date.now();
+      source.nextFetchAt = new Date(finishTime + source.fetchIntervalMinutes * 60 * 1000).toISOString();
+
+      db.updateSource(source.id, {
+        nextFetchAt: source.nextFetchAt,
+        lastFetchedCount: source.lastFetchedCount,
+        lastFetchedAt: source.lastFetchedAt,
+      });
+
+      this.sources = db.getSources();
+      this.isIngestionRunning = false;
+      this.activeIngestionTask = null;
     }
   }
 
-  /**
-   * Tầng 3: 3-Minute Maintenance Cycle (Re-checks only Verified Live proxies)
-   */
+  // =========================================================================
+  // STREAM 2: 3-MINUTE LIVE POOL MAINTENANCE (RE-CHECK VERIFIED PROXIES)
+  // =========================================================================
+
+  async tickMaintenance() {
+    if (this.isMaintenanceRunning || maintenanceRunner.getIsRunning()) {
+      return;
+    }
+
+    const now = Date.now();
+    const nextMaint = this.nextMaintenanceRunAt ? new Date(this.nextMaintenanceRunAt).getTime() : 0;
+    if (now >= nextMaint) {
+      await this.triggerMaintenanceCycle();
+    }
+  }
+
   async triggerMaintenanceCycle() {
+    if (this.isMaintenanceRunning) return;
     this.isMaintenanceRunning = true;
+    this.activeMaintenanceTask = '3-Min Maintenance';
+
     const now = new Date();
     this.lastMaintenanceRunAt = now.toISOString();
-    this.nextMaintenanceRunAt = new Date(now.getTime() + APP_CONFIG.MAINTENANCE_INTERVAL_MINUTES * 60 * 1000).toISOString();
 
     console.log(`\n🏆 ========================================================`);
     console.log(`🏆 [3-Min Maintenance] Starting Re-verification of Live Pool...`);
@@ -124,34 +186,78 @@ export class PyramidScheduler {
           sourceId: p.sourceId,
         }));
 
-        const { liveCount, deadCount } = await queueRunner.runBatch(queueItems, APP_CONFIG.CONCURRENCY_LIMIT);
+        const { liveCount, deadCount } = await maintenanceRunner.runBatch(
+          queueItems,
+          APP_CONFIG.CONCURRENCY_LIMIT,
+          '3-Min Maintenance'
+        );
         console.log(`🏁 [Maintenance Done] ${liveCount} still Live | ${deadCount} Failed/Pruned`);
+
+        // Automatically purge dead proxies from SQLite DB
+        const pruned = db.pruneDeadProxies();
+        if (pruned > 0) {
+          console.log(`🧹 [Auto-Prune] Permanently deleted ${pruned} dead proxies from DB.`);
+        }
       }
     } catch (err: any) {
       console.error(`❌ [Maintenance Error]:`, err?.message || err);
     } finally {
+      this.nextMaintenanceRunAt = new Date(Date.now() + APP_CONFIG.MAINTENANCE_INTERVAL_MINUTES * 60 * 1000).toISOString();
       this.isMaintenanceRunning = false;
+      this.activeMaintenanceTask = null;
     }
   }
 
+  // =========================================================================
+  // SOURCES & STATUS ACCESSORS
+  // =========================================================================
+
   getSources(): ProxySourceConfig[] {
+    this.sources = db.getSources();
     return this.sources;
   }
 
   addSource(source: ProxySourceConfig) {
     source.nextFetchAt = new Date().toISOString();
     source.lastFetchedCount = 0;
-    this.sources.push(source);
-    APP_CONFIG.saveSources(this.sources);
+    db.insertSource(source);
+    this.sources = db.getSources();
+  }
+
+  updateSource(id: string, updates: Partial<ProxySourceConfig>): boolean {
+    const success = db.updateSource(id, updates);
+    if (success) {
+      this.sources = db.getSources();
+    }
+    return success;
+  }
+
+  deleteSource(id: string): boolean {
+    const success = db.deleteSource(id);
+    if (success) {
+      this.sources = db.getSources();
+    }
+    return success;
+  }
+
+  getStatus() {
+    return {
+      ingestion: {
+        isRunning: this.isIngestionRunning || ingestionRunner.getIsRunning(),
+        activeTask: this.activeIngestionTask || ingestionRunner.getCurrentJobName() || null,
+      },
+      maintenance: {
+        intervalMinutes: APP_CONFIG.MAINTENANCE_INTERVAL_MINUTES,
+        lastRunAt: this.lastMaintenanceRunAt,
+        nextRunAt: this.nextMaintenanceRunAt,
+        isRunning: this.isMaintenanceRunning || maintenanceRunner.getIsRunning(),
+        activeTask: this.activeMaintenanceTask || maintenanceRunner.getCurrentJobName() || null,
+      },
+    };
   }
 
   getMaintenanceStatus() {
-    return {
-      intervalMinutes: APP_CONFIG.MAINTENANCE_INTERVAL_MINUTES,
-      lastRunAt: this.lastMaintenanceRunAt,
-      nextRunAt: this.nextMaintenanceRunAt,
-      isChecking: this.isMaintenanceRunning || queueRunner.getIsRunning(),
-    };
+    return this.getStatus().maintenance;
   }
 }
 

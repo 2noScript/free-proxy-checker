@@ -1,10 +1,10 @@
 export const openApiSpec = {
   openapi: '3.1.0',
   info: {
-    title: 'Free Proxy Checker & Pyramid Lifecycle API',
-    version: '1.2.0',
+    title: 'Free Proxy Checker & Dual-Stream Engine API',
+    version: '1.3.0',
     description:
-      'API documentation for multi-source proxy aggregation, automated pyramid tiered verification (15m Ingestion & 3m Maintenance), latency testing, GeoIP resolution, and SQLite WAL persistence.',
+      'High-performance API documentation for multi-source proxy aggregation, Dual-Stream independent parallel execution (Source Ingestion & 3m Live Pool Maintenance), automated dead proxy purging, GeoIP resolution, and SQLite WAL persistence.',
     contact: {
       name: 'Script-Pro Engineering',
     },
@@ -17,19 +17,19 @@ export const openApiSpec = {
   ],
   tags: [
     { name: 'Proxies', description: 'Query and export clean verified proxies with rich filters' },
-    { name: 'Sources', description: 'Manage multi-source ingestion schedules (15m, 30m, 60m...)' },
+    { name: 'Sources', description: 'Manage multi-source ingestion schedules and SQLite persistence' },
     { name: 'Diagnostics & Testing', description: 'On-demand proxy verification and manual scan triggers' },
-    { name: 'Health & Stats', description: 'System health, protocol breakdowns, and maintenance status' },
+    { name: 'Health & Stats', description: 'System health, protocol breakdowns, and dual-stream statuses' },
   ],
   paths: {
     '/api/stats': {
       get: {
         tags: ['Health & Stats'],
-        summary: 'Get Aggregate Statistics & System Status',
-        description: 'Returns total count, live/dead counts, average latency, protocol breakdowns, country distribution, and source schedules.',
+        summary: 'Get Aggregate Statistics & Dual-Stream Status',
+        description: 'Returns total count, live/dead counts, average latency, protocol breakdowns, country distribution, registered SQLite sources, and dual-stream progress states.',
         responses: {
           '200': {
-            description: 'Aggregated statistics and scheduler health',
+            description: 'Aggregated statistics and dual-stream health',
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/SystemStats' },
@@ -43,10 +43,11 @@ export const openApiSpec = {
       get: {
         tags: ['Proxies'],
         summary: 'Get Clean Verified Live Proxies (JSON)',
-        description: 'Returns array of verified live proxies sorted by lowest latency. Supports rich filtering by protocol, country, IP, search keyword, anonymity, and max ping.',
+        description: 'Returns array of verified live proxies sorted by lowest latency. Supports rich filtering by protocol, country, source ID, IP, search keyword, anonymity, and max ping.',
         parameters: [
           { name: 'protocol', in: 'query', description: 'Filter by protocol', schema: { type: 'string', enum: ['socks5', 'socks4', 'http', 'https'] } },
           { name: 'country', in: 'query', description: 'Filter by ISO 2-letter country code', schema: { type: 'string', example: 'US' } },
+          { name: 'source_id', in: 'query', description: 'Filter by registered Source ID', schema: { type: 'string', example: 'iplocate-all' } },
           { name: 'ip', in: 'query', description: 'Filter by IP substring', schema: { type: 'string', example: '47.82' } },
           { name: 'search', in: 'query', description: 'Search keyword across IP, port, city, ISP', schema: { type: 'string', example: 'San Mateo' } },
           { name: 'max_latency', in: 'query', description: 'Maximum latency in milliseconds', schema: { type: 'integer', example: 300 } },
@@ -79,6 +80,7 @@ export const openApiSpec = {
           { name: 'status', in: 'query', description: 'Filter by status', schema: { type: 'string', enum: ['live', 'warning', 'dead'] } },
           { name: 'protocol', in: 'query', schema: { type: 'string', enum: ['socks5', 'socks4', 'http', 'https'] } },
           { name: 'country', in: 'query', schema: { type: 'string', example: 'VN' } },
+          { name: 'source_id', in: 'query', description: 'Filter by registered Source ID', schema: { type: 'string', example: 'proxifly-all' } },
           { name: 'search', in: 'query', schema: { type: 'string' } },
           { name: 'max_latency', in: 'query', schema: { type: 'integer' } },
           { name: 'limit', in: 'query', description: 'Page limit (default 100)', schema: { type: 'integer', default: 100 } },
@@ -110,6 +112,7 @@ export const openApiSpec = {
         parameters: [
           { name: 'protocol', in: 'query', schema: { type: 'string', enum: ['socks5', 'socks4', 'http', 'https'] } },
           { name: 'country', in: 'query', schema: { type: 'string', example: 'US' } },
+          { name: 'source_id', in: 'query', schema: { type: 'string', example: 'thespeedx-socks5' } },
           { name: 'search', in: 'query', schema: { type: 'string' } },
           { name: 'max_latency', in: 'query', schema: { type: 'integer', example: 400 } },
           { name: 'format', in: 'query', description: 'Output format', schema: { type: 'string', enum: ['url', 'ip_port'], default: 'url' } },
@@ -129,7 +132,7 @@ export const openApiSpec = {
     '/api/sources': {
       get: {
         tags: ['Sources'],
-        summary: 'List Registered Ingestion Sources',
+        summary: 'List Registered Ingestion Sources (from SQLite)',
         description: 'Returns list of configured proxy sources with their individual fetch intervals, last fetch counts, and next scheduled runs.',
         responses: {
           '200': {
@@ -144,8 +147,8 @@ export const openApiSpec = {
       },
       post: {
         tags: ['Sources'],
-        summary: 'Register New Proxy Source URL at Runtime',
-        description: 'Dynamically register a new proxy source URL with custom fetch interval without restarting the server.',
+        summary: 'Register New Proxy Source into SQLite Database',
+        description: 'Dynamically register a new proxy source URL with custom fetch interval directly stored into SQLite without restarting.',
         requestBody: {
           required: true,
           content: {
@@ -154,11 +157,11 @@ export const openApiSpec = {
                 type: 'object',
                 required: ['id', 'name', 'url', 'fetchIntervalMinutes'],
                 properties: {
-                  id: { type: 'string', example: 'proxyscrape-http' },
-                  name: { type: 'string', example: 'ProxyScrape Free HTTP' },
-                  url: { type: 'string', example: 'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http' },
-                  fetchIntervalMinutes: { type: 'integer', example: 30 },
-                  defaultProtocol: { type: 'string', enum: ['socks5', 'socks4', 'http', 'https'], default: 'http' },
+                  id: { type: 'string', example: 'my-custom-list' },
+                  name: { type: 'string', example: 'My Custom Proxies' },
+                  url: { type: 'string', example: 'https://raw.githubusercontent.com/.../proxies.txt' },
+                  fetchIntervalMinutes: { type: 'integer', example: 15 },
+                  defaultProtocol: { type: 'string', enum: ['socks5', 'socks4', 'http', 'https'] },
                   format: { type: 'string', enum: ['text_lines', 'json', 'csv'], default: 'text_lines' },
                   enabled: { type: 'boolean', default: true },
                 },
@@ -168,6 +171,47 @@ export const openApiSpec = {
         },
         responses: {
           '200': { description: 'Source successfully registered' },
+        },
+      },
+    },
+    '/api/sources/{id}': {
+      patch: {
+        tags: ['Sources'],
+        summary: 'Update or Toggle Source in SQLite Database',
+        description: 'Update source properties like enabled/disabled status, fetch interval, or name.',
+        parameters: [
+          { name: 'id', in: 'path', required: true, description: 'Source identifier', schema: { type: 'string', example: 'iplocate-all' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  enabled: { type: 'boolean' },
+                  fetchIntervalMinutes: { type: 'integer' },
+                  name: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': { description: 'Source updated successfully' },
+          '404': { description: 'Source not found' },
+        },
+      },
+      delete: {
+        tags: ['Sources'],
+        summary: 'Delete Source from SQLite Database',
+        description: 'Permanently remove a proxy source from SQLite persistence.',
+        parameters: [
+          { name: 'id', in: 'path', required: true, description: 'Source identifier', schema: { type: 'string', example: 'my-custom-list' } },
+        ],
+        responses: {
+          '200': { description: 'Source deleted successfully' },
+          '404': { description: 'Source not found' },
         },
       },
     },
@@ -211,10 +255,11 @@ export const openApiSpec = {
     '/api/trigger-scan': {
       post: {
         tags: ['Diagnostics & Testing'],
-        summary: 'Manually Trigger Maintenance / Ingestion Scan',
-        description: 'Forces an immediate execution of either the 3-minute Live Pool maintenance re-check or the 15-minute multi-source ingestion.',
+        summary: 'Manually Trigger Maintenance / Single Source Ingestion Scan',
+        description: 'Forces an immediate background execution of either the 3-minute Live Pool maintenance re-check or a specific source ingestion.',
         parameters: [
           { name: 'type', in: 'query', description: 'Scan type to trigger', schema: { type: 'string', enum: ['maintenance', 'ingest'], default: 'maintenance' } },
+          { name: 'source_id', in: 'query', description: 'Optional specific source ID to ingest', schema: { type: 'string', example: 'iplocate-all' } },
         ],
         responses: {
           '200': { description: 'Scan triggered in background' },
@@ -224,8 +269,8 @@ export const openApiSpec = {
     '/api/events': {
       get: {
         tags: ['Diagnostics & Testing'],
-        summary: 'Real-Time Progress Event Stream (SSE)',
-        description: 'Server-Sent Events stream delivering live verification progress updates as batches are scanned.',
+        summary: 'Real-Time Dual-Stream Progress Event Stream (SSE)',
+        description: 'Server-Sent Events stream delivering live verification progress updates for both Stream 1 (Ingestion) and Stream 2 (Maintenance).',
         responses: {
           '200': {
             description: 'SSE stream connection',
@@ -310,13 +355,21 @@ export const openApiSpec = {
           byProtocol: { type: 'object', example: { socks5: 339, http: 186, socks4: 44 } },
           byCountry: { type: 'object', example: { '🇺🇸 US': 180, '🇨🇳 CN': 138, '🇸🇬 SG': 20 } },
           sources: { type: 'array', items: { $ref: '#/components/schemas/ProxySourceConfig' } },
+          ingestion: {
+            type: 'object',
+            properties: {
+              isRunning: { type: 'boolean', example: true },
+              activeTask: { type: 'string', example: 'Ingestion: IPLocate Global Free Proxies' },
+            },
+          },
           maintenance: {
             type: 'object',
             properties: {
               intervalMinutes: { type: 'integer', example: 3 },
               lastRunAt: { type: 'string' },
               nextRunAt: { type: 'string' },
-              isChecking: { type: 'boolean', example: false },
+              isRunning: { type: 'boolean', example: false },
+              activeTask: { type: 'string', example: '3-Min Maintenance' },
             },
           },
           timestamp: { type: 'string' },

@@ -27,9 +27,23 @@ export class SocketChecker {
       let isFinished = false;
       let step = 1;
 
+      // Hard timeout timer covering both TCP Connect and Data exchange
+      const timer = setTimeout(() => {
+        cleanup({
+          id: proxy.id,
+          ip: proxy.ip,
+          port: proxy.port,
+          protocol: 'socks5',
+          isAlive: false,
+          latencyMs: Math.round(performance.now() - start),
+          error: 'Connection timeout',
+        });
+      }, APP_CONFIG.TIMEOUT_MS);
+
       const cleanup = (res: CheckResult) => {
         if (isFinished) return;
         isFinished = true;
+        clearTimeout(timer);
         socket.destroy();
         resolve(res);
       };
@@ -122,9 +136,22 @@ export class SocketChecker {
       const socket = new net.Socket();
       let isFinished = false;
 
+      const timer = setTimeout(() => {
+        cleanup({
+          id: proxy.id,
+          ip: proxy.ip,
+          port: proxy.port,
+          protocol: 'socks4',
+          isAlive: false,
+          latencyMs: Math.round(performance.now() - start),
+          error: 'Connection timeout',
+        });
+      }, APP_CONFIG.TIMEOUT_MS);
+
       const cleanup = (res: CheckResult) => {
         if (isFinished) return;
         isFinished = true;
+        clearTimeout(timer);
         socket.destroy();
         resolve(res);
       };
@@ -199,9 +226,22 @@ export class SocketChecker {
       const socket = new net.Socket();
       let isFinished = false;
 
+      const timer = setTimeout(() => {
+        cleanup({
+          id: proxy.id,
+          ip: proxy.ip,
+          port: proxy.port,
+          protocol: 'http',
+          isAlive: false,
+          latencyMs: Math.round(performance.now() - start),
+          error: 'Connection timeout',
+        });
+      }, APP_CONFIG.TIMEOUT_MS);
+
       const cleanup = (res: CheckResult) => {
         if (isFinished) return;
         isFinished = true;
+        clearTimeout(timer);
         socket.destroy();
         resolve(res);
       };

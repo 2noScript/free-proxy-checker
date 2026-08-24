@@ -7,128 +7,192 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
-    body { background-color: #0b1329; color: #f8fafc; font-family: ui-sans-serif, system-ui, sans-serif; }
-    .glass-card { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    body { background-color: #0b1329; color: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .glass-card { background: rgba(30, 41, 59, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .glass-input { background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255, 255, 255, 0.12); }
     .badge-live { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
     .badge-dead { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
     .badge-warn { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-    .badge-socks5 { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
-    .badge-http { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-socks5 { background: rgba(168, 85, 247, 0.18); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); }
+    .badge-socks4 { background: rgba(236, 72, 153, 0.18); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.35); }
+    .badge-http { background: rgba(59, 130, 246, 0.18); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.35); }
+    .badge-https { background: rgba(20, 184, 166, 0.18); color: #2dd4bf; border: 1px solid rgba(20, 184, 166, 0.35); }
+    .glow-amber { box-shadow: 0 0 20px -5px rgba(245, 158, 11, 0.3); }
+    .glow-emerald { box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.3); }
+    .glow-indigo { box-shadow: 0 0 20px -5px rgba(99, 102, 241, 0.3); }
   </style>
 </head>
-<body class="min-h-screen flex flex-col p-4 md:p-8">
+<body class="min-h-screen flex flex-col p-3 md:p-6 lg:p-8">
   <div class="max-w-7xl w-full mx-auto space-y-6">
     
     <!-- Top Header -->
-    <header class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 glass-card p-6 rounded-2xl shadow-xl">
+    <header class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 glass-card p-5 md:p-6 rounded-2xl shadow-2xl border-slate-700/50">
       <div class="flex items-center gap-4">
-        <div class="p-3 bg-gradient-to-tr from-amber-500/20 to-emerald-500/20 rounded-xl border border-amber-500/30 text-2xl">
+        <div class="p-3.5 bg-gradient-to-tr from-amber-500/20 via-emerald-500/20 to-indigo-500/20 rounded-2xl border border-amber-500/30 text-3xl shadow-lg">
           🛡️
         </div>
         <div>
-          <div class="flex items-center gap-3">
-            <h1 class="text-xl md:text-2xl font-bold bg-gradient-to-r from-amber-400 via-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h1 class="text-xl md:text-2xl font-black bg-gradient-to-r from-amber-400 via-emerald-400 to-cyan-400 bg-clip-text text-transparent tracking-tight">
               Free Proxy Checker
             </h1>
-            <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 animate-pulse">
-              Pyramid Lifecycle
+            <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              Pyramid Engine Live
             </span>
           </div>
-          <p class="text-xs text-slate-400 mt-1">
-            Multi-Source Ingestion (15m) • Continuous 3-Min Live Pool Maintenance • SQLite WAL
+          <p class="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+            <span>⚡ Multi-Source Auto-Ingestion</span>
+            <span>•</span>
+            <span>🔄 3-Min Continuous Live Pool Maintenance</span>
+            <span>•</span>
+            <span>💾 SQLite WAL Mode</span>
           </p>
         </div>
       </div>
 
-      <div class="flex items-center gap-3 flex-wrap">
-        <a href="/swagger" target="_blank" class="px-3.5 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded-lg flex items-center gap-2 transition">
-          <i class="fa-solid fa-book"></i> Swagger API
+      <div class="flex items-center gap-2.5 flex-wrap w-full md:w-auto">
+        <button onclick="openAddSourceModal()" class="px-3.5 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded-xl flex items-center gap-1.5 transition shadow-sm">
+          <i class="fa-solid fa-plus-circle text-amber-400"></i> Add Source
+        </button>
+        <a href="/swagger" target="_blank" class="px-3 py-2 text-xs font-medium bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl flex items-center gap-1.5 transition" title="Open API Documentation">
+          <i class="fa-solid fa-book text-amber-400"></i> Swagger Docs
         </a>
-        <button onclick="triggerScan('maintenance')" class="px-3.5 py-2 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center gap-2 transition shadow-lg shadow-emerald-900/30">
-          <i class="fa-solid fa-arrows-rotate"></i> Check Live Pool (3m)
-        </button>
-        <button onclick="triggerScan('ingest')" class="px-3.5 py-2 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg flex items-center gap-2 transition">
-          <i class="fa-solid fa-cloud-arrow-down"></i> Ingest Sources (15m)
-        </button>
       </div>
     </header>
 
-    <!-- Real-time Progress Bar -->
-    <div id="progress-container" class="hidden glass-card p-4 rounded-xl border-amber-500/30">
-      <div class="flex justify-between text-xs font-medium mb-2">
-        <span class="text-amber-400 flex items-center gap-2">
-          <i class="fa-solid fa-spinner fa-spin"></i> Scanning Proxy Batch in Progress...
-        </span>
-        <span id="progress-text" class="text-slate-300">0 / 0</span>
+    <!-- Dual Real-time Progress Section (Separate Independent Streams) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Stream 1: Ingestion & Screening Progress -->
+      <div id="progress-ingest-container" class="hidden glass-card p-4 rounded-2xl border-indigo-500/40 glow-indigo transition-all">
+        <div class="flex items-center justify-between text-xs font-semibold mb-2">
+          <span class="text-indigo-400 flex items-center gap-2 truncate max-w-[280px]">
+            <i class="fa-solid fa-circle-notch fa-spin text-indigo-400"></i>
+            <span class="px-1.5 py-0.5 rounded text-[10px] bg-indigo-500/20 text-indigo-300 font-mono">STREAM 1: INGESTION</span>
+            <span id="progress-ingest-job-name" class="truncate font-sans">Ingesting source...</span>
+          </span>
+          <span id="progress-ingest-text" class="text-slate-300 font-mono text-[11px]">0 / 0 (0%)</span>
+        </div>
+        <div class="w-full bg-slate-900/90 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-700/50">
+          <div id="progress-ingest-bar" class="bg-gradient-to-r from-indigo-500 via-cyan-500 to-emerald-400 h-1.5 rounded-full transition-all duration-300 shadow-sm" style="width: 0%"></div>
+        </div>
       </div>
-      <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
-        <div id="progress-bar" class="bg-gradient-to-r from-amber-500 to-emerald-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+
+      <!-- Stream 2: 3-Min Live Pool Maintenance Progress -->
+      <div id="progress-maint-container" class="hidden glass-card p-4 rounded-2xl border-emerald-500/40 glow-emerald transition-all">
+        <div class="flex items-center justify-between text-xs font-semibold mb-2">
+          <span class="text-emerald-400 flex items-center gap-2 truncate max-w-[280px]">
+            <i class="fa-solid fa-arrows-rotate fa-spin text-emerald-400"></i>
+            <span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-mono">STREAM 2: 3M POOL</span>
+            <span id="progress-maint-job-name" class="truncate font-sans">3-Min Maintenance...</span>
+          </span>
+          <span id="progress-maint-text" class="text-slate-300 font-mono text-[11px]">0 / 0 (0%)</span>
+        </div>
+        <div class="w-full bg-slate-900/90 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-700/50">
+          <div id="progress-maint-bar" class="bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 h-1.5 rounded-full transition-all duration-300 shadow-sm" style="width: 0%"></div>
+        </div>
       </div>
     </div>
 
     <!-- Stat Metrics Grid -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div class="glass-card p-5 rounded-2xl">
-        <div class="text-xs font-medium text-slate-400">Total Ingested</div>
-        <div id="stat-total" class="text-2xl md:text-3xl font-black text-slate-100 mt-1">0</div>
-        <div class="text-[11px] text-slate-500 mt-1">Across all registered sources</div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="glass-card p-5 rounded-2xl relative overflow-hidden">
+        <div class="text-xs font-medium text-slate-400 flex items-center justify-between">
+          <span>Total Harvested</span>
+          <i class="fa-solid fa-database text-slate-500"></i>
+        </div>
+        <div id="stat-total" class="text-2xl md:text-3xl font-black text-slate-100 mt-2 font-mono">0</div>
+        <div class="text-[11px] text-slate-500 mt-1">Across all active sources</div>
       </div>
-      <div class="glass-card p-5 rounded-2xl border-emerald-500/20">
-        <div class="text-xs font-medium text-emerald-400">Active Live Pool</div>
-        <div id="stat-live" class="text-2xl md:text-3xl font-black text-emerald-400 mt-1">0</div>
-        <div class="text-[11px] text-emerald-500/80 mt-1">Verified & Ready for Crawlers</div>
+
+      <div class="glass-card p-5 rounded-2xl border-emerald-500/30 glow-emerald relative overflow-hidden">
+        <div class="text-xs font-medium text-emerald-400 flex items-center justify-between">
+          <span>Verified Live Pool</span>
+          <i class="fa-solid fa-circle-check text-emerald-400"></i>
+        </div>
+        <div id="stat-live" class="text-2xl md:text-3xl font-black text-emerald-400 mt-2 font-mono">0</div>
+        <div class="text-[11px] text-emerald-500/80 mt-1">Ready for Scrapers & Crawlers</div>
       </div>
-      <div class="glass-card p-5 rounded-2xl">
-        <div class="text-xs font-medium text-amber-400">Average Latency</div>
-        <div id="stat-latency" class="text-2xl md:text-3xl font-black text-amber-300 mt-1">0 ms</div>
-        <div class="text-[11px] text-slate-500 mt-1">Live proxies response time</div>
+
+      <div class="glass-card p-5 rounded-2xl relative overflow-hidden">
+        <div class="text-xs font-medium text-amber-400 flex items-center justify-between">
+          <span>Average Latency</span>
+          <i class="fa-solid fa-bolt text-amber-400"></i>
+        </div>
+        <div id="stat-latency" class="text-2xl md:text-3xl font-black text-amber-300 mt-2 font-mono">0 ms</div>
+        <div class="text-[11px] text-slate-500 mt-1">Real socket ping response</div>
       </div>
-      <div class="glass-card p-5 rounded-2xl">
-        <div class="text-xs font-medium text-rose-400">Dead / Demoted</div>
-        <div id="stat-dead" class="text-2xl md:text-3xl font-black text-rose-400 mt-1">0</div>
-        <div class="text-[11px] text-slate-500 mt-1">Failed $\ge$ 2 times</div>
+
+      <div class="glass-card p-5 rounded-2xl relative overflow-hidden">
+        <div class="text-xs font-medium text-rose-400 flex items-center justify-between">
+          <span>Dead / Pruned</span>
+          <i class="fa-solid fa-ban text-rose-400"></i>
+        </div>
+        <div id="stat-dead" class="text-2xl md:text-3xl font-black text-rose-400 mt-2 font-mono">0</div>
+        <div class="text-[11px] text-slate-500 mt-1">Failed & auto-demoted</div>
       </div>
     </div>
 
-    <!-- Registered Sources Status Cards -->
-    <div class="glass-card p-6 rounded-2xl space-y-4">
-      <div class="flex items-center justify-between">
-        <h2 class="text-base font-bold text-slate-200 flex items-center gap-2">
-          <i class="fa-solid fa-network-wired text-indigo-400"></i> Registered Ingestion Sources
-        </h2>
-        <span class="text-xs text-slate-400" id="maint-countdown">Next 3m Maintenance: calculating...</span>
+    <!-- Registered Sources Status Section (DYNAMIC MULTI-SOURCE) -->
+    <div class="glass-card p-6 rounded-2xl space-y-4 shadow-xl border-slate-700/40">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <h2 class="text-base font-bold text-slate-100 flex items-center gap-2">
+            <i class="fa-solid fa-network-wired text-indigo-400"></i> Registered Ingestion Sources
+          </h2>
+          <span id="sources-badge" class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/30">
+            0 Sources
+          </span>
+        </div>
+        <div class="flex items-center gap-3 text-xs text-slate-400">
+          <span id="maint-countdown" class="flex items-center gap-1.5 font-mono">
+            <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i> Next 3m Pool Check: calculating...
+          </span>
+        </div>
       </div>
-      <div id="sources-list" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <!-- Injected via JS -->
+
+      <!-- Ingested Sources Grid -->
+      <div id="sources-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div class="p-6 text-center text-slate-500 col-span-full">
+          <i class="fa-solid fa-spinner fa-spin text-lg mb-2"></i><br>
+          Loading registered sources...
+        </div>
       </div>
     </div>
 
-    <!-- Proxies Table Section -->
-    <div class="glass-card rounded-2xl overflow-hidden shadow-xl">
+    <!-- Proxies Table Section with Full Filters -->
+    <div class="glass-card rounded-2xl overflow-hidden shadow-2xl border-slate-700/50">
       <div class="p-5 border-b border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div class="flex items-center gap-3">
-          <h3 class="font-bold text-slate-200">Verified Proxies</h3>
-          <span id="table-count" class="px-2 py-0.5 text-xs bg-slate-800 text-slate-400 rounded-md">0 items</span>
+          <h3 class="font-bold text-slate-100 text-base">Proxies</h3>
+          <span id="table-count" class="px-2.5 py-0.5 text-xs bg-slate-800/90 text-amber-400 font-mono font-bold rounded-md border border-slate-700">
+            0 items
+          </span>
         </div>
 
-        <div class="flex items-center gap-2.5 flex-wrap w-full md:w-auto">
-          <!-- Search Box (IP, Port, City, ISP) -->
+        <div class="flex items-center gap-2 flex-wrap w-full md:w-auto">
+          <!-- Search Box -->
           <div class="relative">
             <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
-            <input id="filter-search" type="text" placeholder="Search IP, Port, City..." oninput="loadProxies()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg pl-8 pr-3 py-2 outline-none w-44 focus:border-amber-500 transition">
+            <input id="filter-search" type="text" placeholder="Search IP, Port, City..." oninput="loadProxies()" class="glass-input text-xs text-slate-200 rounded-xl pl-8 pr-3 py-2 outline-none w-44 focus:border-amber-500 transition">
           </div>
 
           <!-- Protocol Filter -->
-          <select id="filter-protocol" onchange="loadProxies()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 outline-none">
+          <select id="filter-protocol" onchange="loadProxies()" class="glass-input text-xs text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer">
             <option value="">All Protocols</option>
-            <option value="socks5">SOCKS5</option>
-            <option value="socks4">SOCKS4</option>
-            <option value="http">HTTP</option>
-            <option value="https">HTTPS</option>
+            <option value="socks5">🟣 SOCKS5</option>
+            <option value="socks4">🌸 SOCKS4</option>
+            <option value="http">🔵 HTTP</option>
+            <option value="https">🟢 HTTPS</option>
+          </select>
+
+          <!-- Source Filter (Dynamic) -->
+          <select id="filter-source" onchange="loadProxies()" class="glass-input text-xs text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer">
+            <option value="">All Sources</option>
           </select>
 
           <!-- Country Filter -->
-          <select id="filter-country" onchange="loadProxies()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 outline-none">
+          <select id="filter-country" onchange="loadProxies()" class="glass-input text-xs text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer">
             <option value="">All Countries</option>
             <option value="US">🇺🇸 United States</option>
             <option value="VN">🇻🇳 Vietnam</option>
@@ -144,15 +208,15 @@
           </select>
 
           <!-- Max Ping Filter -->
-          <select id="filter-ping" onchange="loadProxies()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 outline-none">
-            <option value="">All Pings</option>
-            <option value="300">⚡ Ping &lt; 300ms</option>
-            <option value="600">🟡 Ping &lt; 600ms</option>
-            <option value="1200">🟢 Ping &lt; 1200ms</option>
+          <select id="filter-ping" onchange="loadProxies()" class="glass-input text-xs text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer">
+            <option value="">All Latencies</option>
+            <option value="250">⚡ Ping &lt; 250ms</option>
+            <option value="500">🟡 Ping &lt; 500ms</option>
+            <option value="1000">🟢 Ping &lt; 1000ms</option>
           </select>
 
           <!-- Status Filter -->
-          <select id="filter-status" onchange="loadProxies()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 outline-none">
+          <select id="filter-status" onchange="loadProxies()" class="glass-input text-xs text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer">
             <option value="live">Live Only</option>
             <option value="">All Statuses</option>
             <option value="warning">Warning</option>
@@ -160,7 +224,7 @@
           </select>
 
           <!-- Copy All Live -->
-          <button onclick="copyLiveProxies()" class="px-3 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg flex items-center gap-1.5 transition">
+          <button onclick="copyLiveProxies()" class="px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl flex items-center gap-1.5 transition">
             <i class="fa-solid fa-copy text-amber-400"></i> Copy Live
           </button>
         </div>
@@ -168,21 +232,23 @@
 
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs text-slate-300">
-          <thead class="bg-slate-900/60 text-slate-400 uppercase font-semibold border-b border-slate-800">
+          <thead class="bg-slate-900/80 text-slate-400 uppercase font-semibold border-b border-slate-800 text-[11px] tracking-wider">
             <tr>
               <th class="p-4">Proxy Endpoint</th>
               <th class="p-4">Protocol</th>
+              <th class="p-4">Source</th>
               <th class="p-4">Country & Flag</th>
               <th class="p-4">City / Region</th>
               <th class="p-4">Ping (Latency)</th>
+              <th class="p-4">Anonymity</th>
               <th class="p-4">Status</th>
-              <th class="p-4">Consecutive Fails</th>
+              <th class="p-4">Fails</th>
               <th class="p-4">Last Checked</th>
             </tr>
           </thead>
           <tbody id="proxy-table-body" class="divide-y divide-slate-800/60 font-mono">
             <tr>
-              <td colspan="8" class="p-8 text-center text-slate-500 font-sans">
+              <td colspan="10" class="p-8 text-center text-slate-500 font-sans">
                 <i class="fa-solid fa-spinner fa-spin text-lg mb-2"></i><br>
                 Loading proxies from SQLite database...
               </td>
@@ -193,49 +259,166 @@
     </div>
   </div>
 
+  <!-- Add Custom Source Modal -->
+  <div id="add-source-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md hidden flex items-center justify-center p-4 z-50">
+    <div class="glass-card max-w-lg w-full p-6 rounded-2xl border-slate-700 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="font-bold text-base text-slate-100 flex items-center gap-2">
+          <i class="fa-solid fa-plus-circle text-amber-400"></i> Register New Proxy Source
+        </h3>
+        <button onclick="closeAddSourceModal()" class="text-slate-400 hover:text-slate-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="add-source-form" onsubmit="handleAddSource(event)" class="space-y-3.5 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1 font-semibold">Source Identifier (Unique ID)</label>
+          <input id="new-src-id" type="text" placeholder="e.g. github-my-list" required class="w-full glass-input p-2.5 rounded-xl text-slate-100 outline-none focus:border-amber-500">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1 font-semibold">Display Name</label>
+          <input id="new-src-name" type="text" placeholder="e.g. My Custom GitHub Proxies" required class="w-full glass-input p-2.5 rounded-xl text-slate-100 outline-none focus:border-amber-500">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1 font-semibold">Raw Source URL (HTTP/HTTPS)</label>
+          <input id="new-src-url" type="url" placeholder="https://raw.githubusercontent.com/.../proxies.txt" required class="w-full glass-input p-2.5 rounded-xl text-slate-100 outline-none focus:border-amber-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1 font-semibold">Fetch Interval (Minutes)</label>
+            <input id="new-src-interval" type="number" value="15" min="1" max="1440" required class="w-full glass-input p-2.5 rounded-xl text-slate-100 outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1 font-semibold">Default Protocol (Optional)</label>
+            <select id="new-src-proto" class="w-full glass-input p-2.5 rounded-xl text-slate-100 outline-none focus:border-amber-500 cursor-pointer">
+              <option value="">🌐 Auto / Mixed (Detect per line or default HTTP)</option>
+              <option value="http">🔵 HTTP</option>
+              <option value="socks5">🟣 SOCKS5</option>
+              <option value="socks4">🌸 SOCKS4</option>
+              <option value="https">🟢 HTTPS</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          <button type="button" onclick="closeAddSourceModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl shadow-lg">Save & Ingest</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     let sseSource = null;
+    let cachedSources = [];
 
     async function loadStats() {
       try {
         const res = await fetch('/api/stats');
         const data = await res.json();
         
-        document.getElementById('stat-total').innerText = data.total.toLocaleString();
-        document.getElementById('stat-live').innerText = data.live.toLocaleString();
-        document.getElementById('stat-dead').innerText = data.dead.toLocaleString();
+        document.getElementById('stat-total').innerText = (data.total || 0).toLocaleString();
+        document.getElementById('stat-live').innerText = (data.live || 0).toLocaleString();
+        document.getElementById('stat-dead').innerText = (data.dead || 0).toLocaleString();
         document.getElementById('stat-latency').innerText = data.avgLatency ? `${data.avgLatency} ms` : '0 ms';
 
-        // Render Sources Cards
-        const sourcesContainer = document.getElementById('sources-list');
-        sourcesContainer.innerHTML = (data.sources || []).map(s => `
-          <div class="p-4 bg-slate-900/50 rounded-xl border border-slate-800/80 flex items-center justify-between">
-            <div>
-              <div class="font-bold text-xs text-slate-200">${s.name}</div>
-              <div class="text-[11px] text-slate-400 mt-0.5">
-                ⏱️ Interval: <span class="text-amber-400 font-bold">${s.intervalMinutes}m</span> • Last count: ${s.lastCount}
-              </div>
-            </div>
-            <div class="text-right">
-              <span class="px-2 py-0.5 text-[10px] rounded ${s.enabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-500'}">
-                ${s.enabled ? 'Active' : 'Disabled'}
-              </span>
-            </div>
-          </div>
-        `).join('');
+        cachedSources = data.sources || [];
+        renderSources(cachedSources, data.maintenance);
+        updateSourceFilterOptions(cachedSources);
 
         if (data.maintenance?.nextRunAt) {
           const nextDate = new Date(data.maintenance.nextRunAt);
           const diffSec = Math.max(0, Math.round((nextDate.getTime() - Date.now()) / 1000));
-          document.getElementById('maint-countdown').innerText = `Next 3m Maintenance in ~${diffSec}s`;
+          document.getElementById('maint-countdown').innerHTML = `<i class="fa-solid fa-clock-rotate-left text-emerald-400"></i> Next 3m Pool Check in ~${diffSec}s`;
         }
-      } catch (err) {}
+      } catch (err) {
+        console.error('Error loading stats:', err);
+      }
+    }
+
+    function renderSources(sources, maintenance) {
+      document.getElementById('sources-badge').innerText = `${sources.length} Sources Registered`;
+      const container = document.getElementById('sources-list');
+
+      if (!sources || sources.length === 0) {
+        container.innerHTML = `<div class="p-6 text-center text-slate-500 col-span-full font-sans">No sources registered. Click "Add Source" above.</div>`;
+        return;
+      }
+
+      container.innerHTML = sources.map(s => {
+        let nextInMin = 'Due soon';
+        if (s.nextFetchAt) {
+          const diff = Math.round((new Date(s.nextFetchAt).getTime() - Date.now()) / 60000);
+          nextInMin = diff > 0 ? `in ~${diff}m` : 'Due soon';
+        }
+
+        const proto = (s.defaultProtocol || 'AUTO').toUpperCase();
+        const protoBadge = proto === 'SOCKS5' ? 'badge-socks5' : proto === 'SOCKS4' ? 'badge-socks4' : proto === 'HTTPS' ? 'badge-https' : 'badge-http';
+
+        return `
+          <div class="p-4 bg-slate-900/60 rounded-xl border ${s.enabled ? 'border-slate-800/90 hover:border-slate-700' : 'border-slate-800/40 opacity-60'} flex flex-col justify-between gap-3 transition shadow-sm">
+            <div class="flex items-start justify-between gap-2">
+              <div class="space-y-0.5">
+                <div class="font-bold text-xs text-slate-100 flex items-center gap-2">
+                  <span>${s.name}</span>
+                  <span class="px-1.5 py-0.2 text-[10px] rounded font-mono font-bold ${protoBadge}">${proto}</span>
+                </div>
+                <div class="text-[11px] text-slate-400 font-mono truncate max-w-[200px]" title="${s.id}">${s.id}</div>
+              </div>
+              <span class="px-2 py-0.5 text-[10px] rounded font-semibold ${s.enabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-500 border border-slate-700'}">
+                ${s.enabled ? 'Active' : 'Disabled'}
+              </span>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 py-1.5 px-2.5 bg-slate-950/60 rounded-lg text-[11px] border border-slate-800/50">
+              <div>
+                <span class="text-slate-500 block text-[10px]">Interval</span>
+                <span class="text-amber-400 font-bold font-mono">${s.intervalMinutes}m</span>
+              </div>
+              <div>
+                <span class="text-slate-500 block text-[10px]">Yield</span>
+                <span class="text-slate-200 font-bold font-mono">${s.lastCount || 0}</span>
+              </div>
+              <div>
+                <span class="text-slate-500 block text-[10px]">Next Run</span>
+                <span class="text-indigo-300 font-medium">${nextInMin}</span>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-2 pt-1">
+              <button onclick="triggerSingleSourceScan('${s.id}')" class="px-2.5 py-1 text-[11px] bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 rounded-lg flex items-center gap-1 transition">
+                <i class="fa-solid fa-bolt text-[10px]"></i> Ingest Now
+              </button>
+              <div class="flex items-center gap-1.5">
+                <button onclick="toggleSource('${s.id}', ${!s.enabled})" class="p-1.5 text-slate-400 hover:text-amber-300 transition" title="${s.enabled ? 'Disable Source' : 'Enable Source'}">
+                  <i class="fa-solid ${s.enabled ? 'fa-toggle-on text-emerald-400 text-base' : 'fa-toggle-off text-slate-600 text-base'}"></i>
+                </button>
+                <button onclick="deleteSource('${s.id}')" class="p-1.5 text-slate-500 hover:text-rose-400 transition" title="Delete Source">
+                  <i class="fa-solid fa-trash-can text-xs"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateSourceFilterOptions(sources) {
+      const select = document.getElementById('filter-source');
+      const currentVal = select.value;
+      let html = `<option value="">All Sources</option>`;
+      sources.forEach(s => {
+        html += `<option value="${s.id}" ${currentVal === s.id ? 'selected' : ''}>${s.name}</option>`;
+      });
+      select.innerHTML = html;
     }
 
     async function loadProxies() {
       const search = document.getElementById('filter-search').value.trim();
       const protocol = document.getElementById('filter-protocol').value;
       const country = document.getElementById('filter-country').value;
+      const sourceId = document.getElementById('filter-source').value;
       const ping = document.getElementById('filter-ping').value;
       const status = document.getElementById('filter-status').value;
 
@@ -243,6 +426,7 @@
       if (search) url += `search=${encodeURIComponent(search)}&`;
       if (protocol) url += `protocol=${protocol}&`;
       if (country) url += `country=${country}&`;
+      if (sourceId) url += `source_id=${sourceId}&`;
       if (ping) url += `max_latency=${ping}&`;
       if (status && status !== 'live') url += `status=${status}&`;
 
@@ -255,38 +439,59 @@
         const tbody = document.getElementById('proxy-table-body');
 
         if (proxies.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500 font-sans">No proxies match the current filter.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-500 font-sans">No proxies match the current filter.</td></tr>`;
           return;
         }
 
-        tbody.innerHTML = proxies.map(p => `
-          <tr class="hover:bg-slate-800/30 transition">
-            <td class="p-4 font-semibold text-slate-100">${p.id}</td>
-            <td class="p-4">
-              <span class="px-2 py-0.5 text-[11px] rounded font-bold ${p.protocol === 'socks5' ? 'badge-socks5' : 'badge-http'}">
-                ${p.protocol.toUpperCase()}
-              </span>
-            </td>
-            <td class="p-4 font-sans flex items-center gap-1.5">
-              <span>${p.flag || '🌐'}</span>
-              <span>${p.countryName || 'Unknown'} (${p.countryCode || 'N/A'})</span>
-            </td>
-            <td class="p-4 font-sans text-slate-400">${p.city || '—'}</td>
-            <td class="p-4">
-              <span class="font-bold ${p.latencyMs < 400 ? 'text-emerald-400' : p.latencyMs < 900 ? 'text-amber-400' : 'text-rose-400'}">
+        tbody.innerHTML = proxies.map(p => {
+          const protoBadge = p.protocol === 'socks5' ? 'badge-socks5' : p.protocol === 'socks4' ? 'badge-socks4' : p.protocol === 'https' ? 'badge-https' : 'badge-http';
+          const pingColor = p.latencyMs < 300 ? 'text-emerald-400' : p.latencyMs < 700 ? 'text-amber-400' : 'text-rose-400';
+          const anonBadge = p.anonymity === 'elite' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-800 text-slate-400 border-slate-700';
+
+          return `
+            <tr class="hover:bg-slate-800/40 transition">
+              <td class="p-4 font-semibold text-slate-100 flex items-center gap-2">
+                <span>${p.id}</span>
+                <button onclick="navigator.clipboard.writeText('${p.id}')" class="text-slate-500 hover:text-amber-400 transition" title="Copy endpoint">
+                  <i class="fa-solid fa-copy text-[10px]"></i>
+                </button>
+              </td>
+              <td class="p-4">
+                <span class="px-2 py-0.5 text-[11px] rounded font-bold ${protoBadge}">
+                  ${p.protocol.toUpperCase()}
+                </span>
+              </td>
+              <td class="p-4 font-mono">
+                <span class="px-2 py-0.5 text-[10px] rounded bg-slate-800/90 text-indigo-300 border border-slate-700 font-mono font-medium truncate max-w-[120px] inline-block align-middle" title="${p.sourceId || 'manual'}">
+                  ${p.sourceId || 'manual'}
+                </span>
+              </td>
+              <td class="p-4 font-sans flex items-center gap-1.5">
+                <span>${p.flag || '🌐'}</span>
+                <span>${p.countryName || 'Unknown'} (${p.countryCode || 'N/A'})</span>
+              </td>
+              <td class="p-4 font-sans text-slate-400">${p.city || '—'}</td>
+              <td class="p-4 font-bold ${pingColor}">
                 ${p.latencyMs > 0 ? p.latencyMs + ' ms' : '—'}
-              </span>
-            </td>
-            <td class="p-4 font-sans">
-              <span class="px-2 py-0.5 text-[11px] rounded font-semibold ${p.status === 'live' ? 'badge-live' : p.status === 'warning' ? 'badge-warn' : 'badge-dead'}">
-                ${p.status.toUpperCase()}
-              </span>
-            </td>
-            <td class="p-4 text-center ${p.consecutiveFails > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'}">${p.consecutiveFails}</td>
-            <td class="p-4 text-[11px] text-slate-400 font-sans">${new Date(p.lastCheckedAt).toLocaleTimeString()}</td>
-          </tr>
-        `).join('');
-      } catch (err) {}
+              </td>
+              <td class="p-4 font-sans">
+                <span class="px-2 py-0.5 text-[10px] rounded border font-semibold ${anonBadge}">
+                  ${(p.anonymity || 'unknown').toUpperCase()}
+                </span>
+              </td>
+              <td class="p-4 font-sans">
+                <span class="px-2 py-0.5 text-[11px] rounded font-semibold ${p.status === 'live' ? 'badge-live' : p.status === 'warning' ? 'badge-warn' : 'badge-dead'}">
+                  ${p.status.toUpperCase()}
+                </span>
+              </td>
+              <td class="p-4 text-center ${p.consecutiveFails > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'}">${p.consecutiveFails}</td>
+              <td class="p-4 text-[11px] text-slate-400 font-sans">${new Date(p.lastCheckedAt).toLocaleTimeString()}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Error loading proxies:', err);
+      }
     }
 
     async function triggerScan(type) {
@@ -294,42 +499,138 @@
       document.getElementById('progress-container').classList.remove('hidden');
     }
 
+    async function triggerSingleSourceScan(sourceId) {
+      await fetch(`/api/trigger-scan?type=ingest&source_id=${encodeURIComponent(sourceId)}`, { method: 'POST' });
+      document.getElementById('progress-container').classList.remove('hidden');
+    }
+
+    async function toggleSource(sourceId, enabled) {
+      await fetch(`/api/sources/${encodeURIComponent(sourceId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      loadStats();
+    }
+
+    async function deleteSource(sourceId) {
+      if (!confirm(`Are you sure you want to remove source [${sourceId}]?`)) return;
+      await fetch(`/api/sources/${encodeURIComponent(sourceId)}`, { method: 'DELETE' });
+      loadStats();
+    }
+
     async function copyLiveProxies() {
       const res = await fetch('/api/proxies/raw');
       const text = await res.text();
       navigator.clipboard.writeText(text);
-      alert(`Copied ${text.split('\\n').filter(Boolean).length} live proxies to clipboard!`);
+      alert(`Copied ${text.split('\n').filter(Boolean).length} live proxies to clipboard!`);
+    }
+
+    function openAddSourceModal() {
+      document.getElementById('add-source-modal').classList.remove('hidden');
+    }
+
+    function closeAddSourceModal() {
+      document.getElementById('add-source-modal').classList.add('hidden');
+    }
+
+    async function handleAddSource(e) {
+      e.preventDefault();
+      const id = document.getElementById('new-src-id').value.trim();
+      const name = document.getElementById('new-src-name').value.trim();
+      const url = document.getElementById('new-src-url').value.trim();
+      const interval = Number(document.getElementById('new-src-interval').value);
+      const defaultProtocol = document.getElementById('new-src-proto').value;
+
+      try {
+        const payload = {
+          id,
+          name,
+          url,
+          fetchIntervalMinutes: interval,
+          format: 'text_lines',
+          enabled: true,
+        };
+        if (defaultProtocol) {
+          payload.defaultProtocol = defaultProtocol;
+        }
+
+        const res = await fetch('/api/sources', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.ok) {
+          closeAddSourceModal();
+          document.getElementById('add-source-form').reset();
+          loadStats();
+          alert(`Source [${name}] added successfully! Ingestion will start shortly.`);
+        } else {
+          const err = await res.json();
+          alert(`Failed to add source: ${err.error || 'Unknown error'}`);
+        }
+      } catch (err) {
+        alert(`Error adding source: ${err.message}`);
+      }
     }
 
     function initSSE() {
       sseSource = new EventSource('/api/events');
       sseSource.addEventListener('progress', (e) => {
         const data = JSON.parse(e.data);
-        const container = document.getElementById('progress-container');
-        container.classList.remove('hidden');
+        const streamType = data.stream || (data.jobName?.includes('3-Min') ? 'maint' : 'ingest');
 
-        const pct = Math.round((data.checked / data.total) * 100);
-        document.getElementById('progress-bar').style.width = `${pct}%`;
-        document.getElementById('progress-text').innerText = `${data.checked} / ${data.total} (${data.live} live, ${data.dead} dead)`;
+        if (streamType === 'maint') {
+          const container = document.getElementById('progress-maint-container');
+          container.classList.remove('hidden');
 
-        if (data.checked >= data.total) {
-          setTimeout(() => {
-            container.classList.add('hidden');
-            loadStats();
-            loadProxies();
-          }, 2000);
+          if (data.jobName) {
+            document.getElementById('progress-maint-job-name').innerText = data.jobName;
+          }
+
+          const pct = Math.round((data.checked / data.total) * 100);
+          document.getElementById('progress-maint-bar').style.width = `${pct}%`;
+          document.getElementById('progress-maint-text').innerText = `${data.checked} / ${data.total} (${pct}% • ${data.live} still live, ${data.dead} pruned)`;
+
+          if (data.checked >= data.total) {
+            setTimeout(() => {
+              container.classList.add('hidden');
+              loadStats();
+              loadProxies();
+            }, 3000);
+          }
+        } else {
+          const container = document.getElementById('progress-ingest-container');
+          container.classList.remove('hidden');
+
+          if (data.jobName) {
+            document.getElementById('progress-ingest-job-name').innerText = data.jobName;
+          }
+
+          const pct = Math.round((data.checked / data.total) * 100);
+          document.getElementById('progress-ingest-bar').style.width = `${pct}%`;
+          document.getElementById('progress-ingest-text').innerText = `${data.checked} / ${data.total} (${pct}% • ${data.live} live, ${data.dead} dead)`;
+
+          if (data.checked >= data.total) {
+            setTimeout(() => {
+              container.classList.add('hidden');
+              loadStats();
+              loadProxies();
+            }, 3000);
+          }
         }
       });
     }
 
-    // Initialize
+    // Auto Refresh Intervals
     loadStats();
     loadProxies();
     initSSE();
     setInterval(() => {
       loadStats();
       loadProxies();
-    }, 15000);
+    }, 10000);
   </script>
 </body>
 </html>
