@@ -1,10 +1,10 @@
 export const openApiSpec = {
   openapi: '3.1.0',
   info: {
-    title: 'Free Proxy Checker & Dual-Stream Engine API',
-    version: '1.3.0',
+    title: 'Free Proxy Checker & Central Basket Engine API',
+    version: '1.4.0',
     description:
-      'High-performance API documentation for multi-source proxy aggregation, Dual-Stream independent parallel execution (Source Ingestion & 3m Live Pool Maintenance), automated dead proxy purging, GeoIP resolution, and SQLite WAL persistence.',
+      'High-performance API for multi-source proxy aggregation, Central Candidate Basket with smart deduplication & 3m cooldown, Dual-Stream parallel execution (Source Ingestion & 3m Live Pool Maintenance), Proxy Authentication (HTTP Basic Auth & SOCKS5 RFC 1929), GeoIP resolution, and SQLite WAL persistence.',
     contact: {
       name: 'Script-Pro Engineering',
     },
@@ -16,20 +16,20 @@ export const openApiSpec = {
     },
   ],
   tags: [
-    { name: 'Proxies', description: 'Query and export clean verified proxies with rich filters' },
+    { name: 'Proxies', description: 'Query and export clean verified proxies with rich filters and pagination' },
     { name: 'Sources', description: 'Manage multi-source ingestion schedules and SQLite persistence' },
-    { name: 'Diagnostics & Testing', description: 'On-demand proxy verification and manual scan triggers' },
-    { name: 'Health & Stats', description: 'System health, protocol breakdowns, and dual-stream statuses' },
+    { name: 'Diagnostics & Testing', description: 'On-demand proxy verification with authentication support and scan triggers' },
+    { name: 'Health & Stats', description: 'System health, candidate basket status, protocol breakdowns, and dual-stream progress' },
   ],
   paths: {
     '/api/stats': {
       get: {
         tags: ['Health & Stats'],
-        summary: 'Get Aggregate Statistics & Dual-Stream Status',
-        description: 'Returns total count, live/dead counts, average latency, protocol breakdowns, country distribution, registered SQLite sources, and dual-stream progress states.',
+        summary: 'Get Aggregate Statistics, Candidate Basket & Stream States',
+        description: 'Returns total count, live/dead counts, average latency, protocol breakdowns, country distribution, candidate basket size, deduplication savings, registered sources, and stream progress.',
         responses: {
           '200': {
-            description: 'Aggregated statistics and dual-stream health',
+            description: 'Aggregated statistics, candidate queue, and stream health',
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/SystemStats' },
@@ -42,26 +42,34 @@ export const openApiSpec = {
     '/api/proxies': {
       get: {
         tags: ['Proxies'],
-        summary: 'Get Clean Verified Live Proxies (JSON)',
-        description: 'Returns array of verified live proxies sorted by lowest latency. Supports rich filtering by protocol, country, source ID, IP, search keyword, anonymity, and max ping.',
+        summary: 'Get Clean Verified Live Proxies (JSON - Paginated)',
+        description: 'Returns array of verified live proxies sorted by lowest latency. Supports rich filtering by protocol, country, source ID, IP substring, search keyword, anonymity, and max ping, along with pagination.',
         parameters: [
           { name: 'protocol', in: 'query', description: 'Filter by protocol', schema: { type: 'string', enum: ['socks5', 'socks4', 'http', 'https'] } },
           { name: 'country', in: 'query', description: 'Filter by ISO 2-letter country code', schema: { type: 'string', example: 'US' } },
-          { name: 'source_id', in: 'query', description: 'Filter by registered Source ID', schema: { type: 'string', example: 'iplocate-all' } },
+          { name: 'source_id', in: 'query', description: 'Filter by registered Source ID', schema: { type: 'string', example: 'proxifly-all' } },
           { name: 'ip', in: 'query', description: 'Filter by IP substring', schema: { type: 'string', example: '47.82' } },
           { name: 'search', in: 'query', description: 'Search keyword across IP, port, city, ISP', schema: { type: 'string', example: 'San Mateo' } },
           { name: 'max_latency', in: 'query', description: 'Maximum latency in milliseconds', schema: { type: 'integer', example: 300 } },
           { name: 'anonymity', in: 'query', description: 'Filter by anonymity level', schema: { type: 'string', enum: ['elite', 'anonymous', 'transparent'] } },
+          { name: 'limit', in: 'query', description: 'Page limit (optional)', schema: { type: 'integer', default: 50, example: 50 } },
+          { name: 'page', in: 'query', description: 'Page number (1-based)', schema: { type: 'integer', default: 1, example: 1 } },
+          { name: 'offset', in: 'query', description: 'Pagination offset', schema: { type: 'integer', default: 0, example: 0 } },
         ],
         responses: {
           '200': {
-            description: 'Filtered list of live proxies',
+            description: 'Paginated list of live proxies',
             content: {
               'application/json': {
                 schema: {
                   type: 'object',
                   properties: {
-                    count: { type: 'integer', example: 45 },
+                    total: { type: 'integer', example: 1540 },
+                    count: { type: 'integer', example: 50 },
+                    page: { type: 'integer', example: 1 },
+                    totalPages: { type: 'integer', example: 31 },
+                    limit: { type: 'integer', example: 50 },
+                    offset: { type: 'integer', example: 0 },
                     proxies: { type: 'array', items: { $ref: '#/components/schemas/ProxyRecord' } },
                   },
                 },
@@ -83,18 +91,24 @@ export const openApiSpec = {
           { name: 'source_id', in: 'query', description: 'Filter by registered Source ID', schema: { type: 'string', example: 'proxifly-all' } },
           { name: 'search', in: 'query', schema: { type: 'string' } },
           { name: 'max_latency', in: 'query', schema: { type: 'integer' } },
-          { name: 'limit', in: 'query', description: 'Page limit (default 100)', schema: { type: 'integer', default: 100 } },
+          { name: 'limit', in: 'query', description: 'Page limit (default 50)', schema: { type: 'integer', default: 50 } },
+          { name: 'page', in: 'query', description: 'Page number (1-based)', schema: { type: 'integer', default: 1 } },
           { name: 'offset', in: 'query', description: 'Pagination offset (default 0)', schema: { type: 'integer', default: 0 } },
         ],
         responses: {
           '200': {
-            description: 'Paginated proxy records',
+            description: 'Paginated proxy records across all statuses',
             content: {
               'application/json': {
                 schema: {
                   type: 'object',
                   properties: {
-                    count: { type: 'integer' },
+                    total: { type: 'integer', example: 58000 },
+                    count: { type: 'integer', example: 50 },
+                    page: { type: 'integer', example: 1 },
+                    totalPages: { type: 'integer', example: 1160 },
+                    limit: { type: 'integer', example: 50 },
+                    offset: { type: 'integer', example: 0 },
                     proxies: { type: 'array', items: { $ref: '#/components/schemas/ProxyRecord' } },
                   },
                 },
@@ -107,22 +121,31 @@ export const openApiSpec = {
     '/api/proxies/raw': {
       get: {
         tags: ['Proxies'],
-        summary: 'Export Live Proxies as Raw Text Lines (Crawler Ready)',
-        description: 'Returns plain text list formatted as `protocol://ip:port` or `ip:port` ready for ingestion by Playwright, Camoufox, or crawler workers.',
+        summary: 'Export Live Proxies as Raw Text Lines (Crawler & Automation Ready)',
+        description:
+          'Returns plain text lines formatted as `protocol://[user:pass@]ip:port` (format=url) or `ip:port[:user:pass]` (format=ip_port). If credentials exist, they are preserved automatically.',
         parameters: [
           { name: 'protocol', in: 'query', schema: { type: 'string', enum: ['socks5', 'socks4', 'http', 'https'] } },
           { name: 'country', in: 'query', schema: { type: 'string', example: 'US' } },
           { name: 'source_id', in: 'query', schema: { type: 'string', example: 'thespeedx-socks5' } },
           { name: 'search', in: 'query', schema: { type: 'string' } },
           { name: 'max_latency', in: 'query', schema: { type: 'integer', example: 400 } },
-          { name: 'format', in: 'query', description: 'Output format', schema: { type: 'string', enum: ['url', 'ip_port'], default: 'url' } },
+          {
+            name: 'format',
+            in: 'query',
+            description: 'Output format: "url" -> protocol://[user:pass@]ip:port, "ip_port" -> ip:port[:user:pass]',
+            schema: { type: 'string', enum: ['url', 'ip_port'], default: 'url' },
+          },
         ],
         responses: {
           '200': {
-            description: 'Plain text proxy list',
+            description: 'Plain text proxy list ready for crawler ingestion',
             content: {
               'text/plain': {
-                schema: { type: 'string', example: 'socks5://47.82.80.23:1011\nsocks5://47.250.211.53:1080' },
+                schema: {
+                  type: 'string',
+                  example: 'socks5://admin:pass123@47.82.80.23:1011\nsocks5://47.250.211.53:1080\nhttp://185.162.231.238:80',
+                },
               },
             },
           },
@@ -218,8 +241,9 @@ export const openApiSpec = {
     '/api/check-single': {
       post: {
         tags: ['Diagnostics & Testing'],
-        summary: 'On-Demand Single Proxy Verification',
-        description: 'Instantly tests any arbitrary proxy string using native TCP socket handshake, computes true Ping ms, and resolves GeoIP.',
+        summary: 'On-Demand Single Proxy Verification with Auth Support',
+        description:
+          'Tests any arbitrary proxy string using native TCP socket handshake, computes true latency, handles HTTP Basic Auth or SOCKS5 RFC 1929 subnegotiation, detects 407 Proxy Authentication Required errors, and resolves GeoIP.',
         requestBody: {
           required: true,
           content: {
@@ -228,7 +252,11 @@ export const openApiSpec = {
                 type: 'object',
                 required: ['proxy'],
                 properties: {
-                  proxy: { type: 'string', example: 'socks5://104.248.63.15:1080' },
+                  proxy: {
+                    type: 'string',
+                    example: 'socks5://admin:secret123@104.248.63.15:1080',
+                    description: 'Formats: protocol://[user:pass@]ip:port or ip:port[:user:pass]',
+                  },
                 },
               },
             },
@@ -255,7 +283,7 @@ export const openApiSpec = {
     '/api/trigger-scan': {
       post: {
         tags: ['Diagnostics & Testing'],
-        summary: 'Manually Trigger Maintenance / Single Source Ingestion Scan',
+        summary: 'Manually Trigger Maintenance / Source Ingestion Scan',
         description: 'Forces an immediate background execution of either the 3-minute Live Pool maintenance re-check or a specific source ingestion.',
         parameters: [
           { name: 'type', in: 'query', description: 'Scan type to trigger', schema: { type: 'string', enum: ['maintenance', 'ingest'], default: 'maintenance' } },
@@ -269,8 +297,8 @@ export const openApiSpec = {
     '/api/events': {
       get: {
         tags: ['Diagnostics & Testing'],
-        summary: 'Real-Time Dual-Stream Progress Event Stream (SSE)',
-        description: 'Server-Sent Events stream delivering live verification progress updates for both Stream 1 (Ingestion) and Stream 2 (Maintenance).',
+        summary: 'Real-Time Progress Event Stream (SSE)',
+        description: 'Server-Sent Events stream delivering live verification progress updates for both Stream 1 (Candidate Basket Screening) and Stream 2 (3-Min Maintenance).',
         responses: {
           '200': {
             description: 'SSE stream connection',
@@ -285,10 +313,12 @@ export const openApiSpec = {
       ProxyRecord: {
         type: 'object',
         properties: {
-          id: { type: 'string', example: 'socks5://47.82.80.23:1011' },
+          id: { type: 'string', example: 'socks5://admin:secret123@47.82.80.23:1011' },
           ip: { type: 'string', example: '47.82.80.23' },
           port: { type: 'integer', example: 1011 },
           protocol: { type: 'string', enum: ['socks5', 'socks4', 'http', 'https'], example: 'socks5' },
+          username: { type: 'string', example: 'admin', nullable: true },
+          password: { type: 'string', example: 'secret123', nullable: true },
           status: { type: 'string', enum: ['live', 'warning', 'dead'], example: 'live' },
           latencyMs: { type: 'integer', example: 77 },
           countryCode: { type: 'string', example: 'US' },
@@ -296,8 +326,8 @@ export const openApiSpec = {
           flag: { type: 'string', example: '🇺🇸' },
           city: { type: 'string', example: 'San Mateo' },
           isp: { type: 'string', example: 'Alibaba Cloud' },
-          anonymity: { type: 'string', enum: ['elite', 'anonymous', 'transparent'], example: 'elite' },
-          sourceId: { type: 'string', example: 'iplocate-all' },
+          anonymity: { type: 'string', enum: ['elite', 'anonymous', 'transparent', 'unknown'], example: 'elite' },
+          sourceId: { type: 'string', example: 'proxifly-all' },
           successCount: { type: 'integer', example: 5 },
           failCount: { type: 'integer', example: 0 },
           consecutiveFails: { type: 'integer', example: 0 },
@@ -309,15 +339,17 @@ export const openApiSpec = {
       CheckResult: {
         type: 'object',
         properties: {
-          id: { type: 'string', example: 'socks5://104.248.63.15:1080' },
+          id: { type: 'string', example: 'socks5://admin:secret123@104.248.63.15:1080' },
           ip: { type: 'string', example: '104.248.63.15' },
           port: { type: 'integer', example: 1080 },
           protocol: { type: 'string', example: 'socks5' },
+          username: { type: 'string', example: 'admin', nullable: true },
+          password: { type: 'string', example: 'secret123', nullable: true },
           isAlive: { type: 'boolean', example: true },
           latencyMs: { type: 'integer', example: 145 },
           anonymity: { type: 'string', example: 'elite' },
           egressIp: { type: 'string', example: '104.248.63.15' },
-          error: { type: 'string' },
+          error: { type: 'string', example: '407 Proxy Authentication Required (Missing credentials)' },
         },
       },
       GeoInfo: {
@@ -328,6 +360,7 @@ export const openApiSpec = {
           countryName: { type: 'string', example: 'United States' },
           flag: { type: 'string', example: '🇺🇸' },
           city: { type: 'string', example: 'North Bergen' },
+          isp: { type: 'string', example: 'DigitalOcean' },
         },
       },
       ProxySourceConfig: {
@@ -359,7 +392,9 @@ export const openApiSpec = {
             type: 'object',
             properties: {
               isRunning: { type: 'boolean', example: true },
-              activeTask: { type: 'string', example: 'Ingestion: IPLocate Global Free Proxies' },
+              activeTask: { type: 'string', example: 'Screening Basket (58,800 waiting)' },
+              queueSize: { type: 'integer', example: 58800 },
+              dedupSavedTotal: { type: 'integer', example: 12450 },
             },
           },
           maintenance: {
@@ -369,7 +404,7 @@ export const openApiSpec = {
               lastRunAt: { type: 'string' },
               nextRunAt: { type: 'string' },
               isRunning: { type: 'boolean', example: false },
-              activeTask: { type: 'string', example: '3-Min Maintenance' },
+              activeTask: { type: 'string', example: null, nullable: true },
             },
           },
           timestamp: { type: 'string' },
@@ -384,21 +419,135 @@ export function renderSwaggerUI(): string {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Free Proxy Checker API - Swagger UI</title>
-  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Free Proxy Checker API - Swagger Documentation</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.18.2/swagger-ui.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    body { margin: 0; background: #0b1329; color: #f8fafc; font-family: ui-sans-serif, system-ui, sans-serif; }
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #111827;
+      --bg-elevated: #1f2937;
+      --border-color: #374151;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+    }
+    body {
+      margin: 0;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .custom-header {
+      background: linear-gradient(180deg, #111827 0%, #0b0f19 100%);
+      border-bottom: 1px solid #1f2937;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .custom-header .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .custom-header .brand span.badge {
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: #a5b4fc;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .custom-header a.back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #94a3b8;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .custom-header a.back-btn:hover {
+      color: #f8fafc;
+      background: #334155;
+    }
     .swagger-ui .topbar { display: none; }
-    .swagger-ui { filter: invert(88%) hue-rotate(180deg); }
-    .swagger-ui .wrapper { max-width: 1200px; margin: 0 auto; padding: 24px; }
-    .swagger-ui .info h2 { color: #38bdf8; }
-    .swagger-ui .btn { border-radius: 8px; font-weight: 600; }
+    .swagger-ui {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
+      filter: invert(90%) hue-rotate(180deg);
+    }
+    .swagger-ui img {
+      filter: invert(100%) hue-rotate(180deg);
+    }
+    .swagger-ui .info {
+      margin: 20px 0 30px;
+    }
+    .swagger-ui .info .title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 800;
+      color: #4338ca;
+    }
+    .swagger-ui .opblock-tag {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 8px;
+    }
+    .swagger-ui .opblock {
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      margin-bottom: 14px;
+    }
+    .swagger-ui .opblock .opblock-summary-method {
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+    }
+    .swagger-ui input, .swagger-ui select, .swagger-ui textarea {
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .swagger-ui .btn {
+      border-radius: 8px;
+      font-weight: 600;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
   </style>
 </head>
 <body>
+  <header class="custom-header">
+    <div class="brand">
+      <span>🛡️ Free Proxy Checker</span>
+      <span class="badge">OpenAPI 3.1 &bull; v1.4.0</span>
+    </div>
+    <div>
+      <a href="/" class="back-btn">
+        <span>&larr; Web Dashboard</span>
+      </a>
+    </div>
+  </header>
+
   <div id="swagger-ui"></div>
-  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+
+  <script src="https://unpkg.com/swagger-ui-dist@5.18.2/swagger-ui-bundle.js"></script>
   <script>
     window.onload = () => {
       window.ui = SwaggerUIBundle({
@@ -408,7 +557,10 @@ export function renderSwaggerUI(): string {
         layout: 'BaseLayout',
         deepLinking: true,
         docExpansion: 'list',
-        defaultModelsExpandDepth: 2
+        defaultModelsExpandDepth: 3,
+        displayRequestDuration: true,
+        tryItOutEnabled: true,
+        filter: true
       });
     };
   </script>
