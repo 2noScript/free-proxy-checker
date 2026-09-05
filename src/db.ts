@@ -76,13 +76,17 @@ export class DatabaseManager {
         );
       `);
 
-      // Auto-seed DEFAULT_SOURCES into SQLite if not already present
+      // Auto-seed DEFAULT_SOURCES into SQLite and sync intervals
       const insertSourceStmt = this.db.prepare(`
-        INSERT OR IGNORE INTO sources (
+        INSERT INTO sources (
           id, name, url, format, default_protocol, fetch_interval_minutes, enabled, next_fetch_at, last_fetched_count
         ) VALUES (
           $id, $name, $url, $format, $default_protocol, $fetch_interval_minutes, $enabled, $next_fetch_at, 0
-        );
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          fetch_interval_minutes = excluded.fetch_interval_minutes,
+          url = excluded.url,
+          name = excluded.name;
       `);
 
       const now = new Date().toISOString();

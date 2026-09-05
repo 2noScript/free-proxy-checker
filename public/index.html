@@ -61,17 +61,17 @@
       </div>
     </header>
 
-    <!-- Dual Real-time Progress Section (Separate Independent Streams) -->
+    <!-- Dual Real-time Progress Section (Separate Independent Streams - Always Visible) -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <!-- Stream 1: Ingestion & Screening Progress -->
-      <div id="progress-ingest-container" class="hidden glass-card p-4 rounded-2xl border-indigo-500/40 glow-indigo transition-all">
+      <div id="progress-ingest-container" class="glass-card p-4 rounded-2xl border-indigo-500/30 transition-all shadow-sm">
         <div class="flex items-center justify-between text-xs font-semibold mb-2">
           <span class="text-indigo-400 flex items-center gap-2 truncate max-w-[280px]">
-            <i class="fa-solid fa-circle-notch fa-spin text-indigo-400"></i>
+            <i id="progress-ingest-icon" class="fa-solid fa-circle-dot text-slate-500 text-xs"></i>
             <span class="px-1.5 py-0.5 rounded text-[10px] bg-indigo-500/20 text-indigo-300 font-mono">STREAM 1: INGESTION</span>
-            <span id="progress-ingest-job-name" class="truncate font-sans">Ingesting source...</span>
+            <span id="progress-ingest-job-name" class="truncate font-sans text-slate-300 font-normal">Idle • Waiting for candidates...</span>
           </span>
-          <span id="progress-ingest-text" class="text-slate-300 font-mono text-[11px]">0 / 0 (0%)</span>
+          <span id="progress-ingest-text" class="text-slate-400 font-mono text-[11px]">Standby</span>
         </div>
         <div class="w-full bg-slate-900/90 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-700/50">
           <div id="progress-ingest-bar" class="bg-gradient-to-r from-indigo-500 via-cyan-500 to-emerald-400 h-1.5 rounded-full transition-all duration-300 shadow-sm" style="width: 0%"></div>
@@ -79,14 +79,14 @@
       </div>
 
       <!-- Stream 2: 3-Min Live Pool Maintenance Progress -->
-      <div id="progress-maint-container" class="hidden glass-card p-4 rounded-2xl border-emerald-500/40 glow-emerald transition-all">
+      <div id="progress-maint-container" class="glass-card p-4 rounded-2xl border-emerald-500/30 transition-all shadow-sm">
         <div class="flex items-center justify-between text-xs font-semibold mb-2">
           <span class="text-emerald-400 flex items-center gap-2 truncate max-w-[280px]">
-            <i class="fa-solid fa-arrows-rotate fa-spin text-emerald-400"></i>
+            <i id="progress-maint-icon" class="fa-solid fa-shield-halved text-slate-500 text-xs"></i>
             <span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-mono">STREAM 2: 3M POOL</span>
-            <span id="progress-maint-job-name" class="truncate font-sans">3-Min Maintenance...</span>
+            <span id="progress-maint-job-name" class="truncate font-sans text-slate-300 font-normal">Idle • 3-Min Pool Check</span>
           </span>
-          <span id="progress-maint-text" class="text-slate-300 font-mono text-[11px]">0 / 0 (0%)</span>
+          <span id="progress-maint-text" class="text-slate-400 font-mono text-[11px]">Standby</span>
         </div>
         <div class="w-full bg-slate-900/90 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-700/50">
           <div id="progress-maint-bar" class="bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 h-1.5 rounded-full transition-all duration-300 shadow-sm" style="width: 0%"></div>
@@ -165,10 +165,6 @@
           <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Dedup Saved</div>
           <div id="stat-dedup-saved" class="text-xl md:text-2xl font-black text-emerald-400 font-mono mt-0.5">0</div>
         </div>
-        <div class="h-8 w-px bg-slate-800"></div>
-        <button onclick="triggerWorkerWakeUp()" class="px-3.5 py-2 text-xs font-semibold bg-indigo-600/80 hover:bg-indigo-600 text-white rounded-xl flex items-center gap-1.5 transition shadow-sm border border-indigo-400/30">
-          <i class="fa-solid fa-play text-indigo-200"></i> Drain Basket
-        </button>
       </div>
     </div>
 
@@ -558,7 +554,7 @@
 
     async function triggerScan(type) {
       await fetch(`/api/trigger-scan?type=${type}`, { method: 'POST' });
-      document.getElementById('progress-container').classList.remove('hidden');
+      loadStats();
     }
 
     async function triggerSingleSourceScan(sourceId) {
@@ -649,39 +645,59 @@
         const streamType = data.stream || (data.jobName?.includes('3-Min') ? 'maint' : 'ingest');
 
         if (streamType === 'maint') {
-          const container = document.getElementById('progress-maint-container');
-          container.classList.remove('hidden');
+          const icon = document.getElementById('progress-maint-icon');
+          const jobNameEl = document.getElementById('progress-maint-job-name');
+          const bar = document.getElementById('progress-maint-bar');
+          const textEl = document.getElementById('progress-maint-text');
 
-          if (data.jobName) {
-            document.getElementById('progress-maint-job-name').innerText = data.jobName;
+          if (icon) icon.className = 'fa-solid fa-arrows-rotate fa-spin text-emerald-400 text-xs';
+          if (data.jobName && jobNameEl) {
+            jobNameEl.innerText = data.jobName;
+            jobNameEl.className = 'truncate font-sans text-emerald-300 font-semibold';
           }
 
           const pct = Math.round((data.checked / data.total) * 100);
-          document.getElementById('progress-maint-bar').style.width = `${pct}%`;
-          document.getElementById('progress-maint-text').innerText = `${data.checked} / ${data.total} (${pct}% • ${data.live} still live, ${data.dead} pruned)`;
+          if (bar) bar.style.width = `${pct}%`;
+          if (textEl) textEl.innerText = `${data.checked} / ${data.total} (${pct}% • ${data.live} live, ${data.dead} pruned)`;
 
           if (data.checked >= data.total) {
             setTimeout(() => {
-              container.classList.add('hidden');
+              if (icon) icon.className = 'fa-solid fa-shield-halved text-slate-500 text-xs';
+              if (jobNameEl) {
+                jobNameEl.innerText = 'Idle • 3-Min Pool Check';
+                jobNameEl.className = 'truncate font-sans text-slate-300 font-normal';
+              }
+              if (textEl) textEl.innerText = 'Standby';
+              if (bar) bar.style.width = '0%';
               loadStats();
               loadProxies();
             }, 3000);
           }
         } else {
-          const container = document.getElementById('progress-ingest-container');
-          container.classList.remove('hidden');
+          const icon = document.getElementById('progress-ingest-icon');
+          const jobNameEl = document.getElementById('progress-ingest-job-name');
+          const bar = document.getElementById('progress-ingest-bar');
+          const textEl = document.getElementById('progress-ingest-text');
 
-          if (data.jobName) {
-            document.getElementById('progress-ingest-job-name').innerText = data.jobName;
+          if (icon) icon.className = 'fa-solid fa-circle-notch fa-spin text-indigo-400 text-xs';
+          if (data.jobName && jobNameEl) {
+            jobNameEl.innerText = data.jobName;
+            jobNameEl.className = 'truncate font-sans text-indigo-300 font-semibold';
           }
 
           const pct = Math.round((data.checked / data.total) * 100);
-          document.getElementById('progress-ingest-bar').style.width = `${pct}%`;
-          document.getElementById('progress-ingest-text').innerText = `${data.checked} / ${data.total} (${pct}% • ${data.live} live, ${data.dead} dead)`;
+          if (bar) bar.style.width = `${pct}%`;
+          if (textEl) textEl.innerText = `${data.checked} / ${data.total} (${pct}% • ${data.live} live, ${data.dead} dead)`;
 
           if (data.checked >= data.total) {
             setTimeout(() => {
-              container.classList.add('hidden');
+              if (icon) icon.className = 'fa-solid fa-circle-dot text-slate-500 text-xs';
+              if (jobNameEl) {
+                jobNameEl.innerText = 'Idle • Waiting for candidates...';
+                jobNameEl.className = 'truncate font-sans text-slate-300 font-normal';
+              }
+              if (textEl) textEl.innerText = 'Standby';
+              if (bar) bar.style.width = '0%';
               loadStats();
               loadProxies();
             }, 3000);

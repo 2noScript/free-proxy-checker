@@ -6,7 +6,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     name: 'IPLocate Global Free Proxies',
     url: 'https://raw.githubusercontent.com/iplocate/free-proxy-list/main/all-proxies.txt',
     format: 'text_lines',
-    fetchIntervalMinutes: 15,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -50,7 +50,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     name: 'Monosans Multi-Protocol',
     url: 'https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt',
     format: 'text_lines',
-    fetchIntervalMinutes: 30,
+    fetchIntervalMinutes: 60,
     enabled: true,
   },
   // --- Komutan234 (Fast Refresh - 2min) ---
