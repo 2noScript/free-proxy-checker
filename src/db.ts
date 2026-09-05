@@ -2,10 +2,11 @@ import { Database as SqliteDatabase } from 'bun:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
 import { APP_CONFIG, DEFAULT_SOURCES } from './config';
-import type { CheckResult, GeoInfo, ProxyRecord, ProxySourceConfig, ProxyStatus } from './types';
+import type { CheckQueueItem, CheckResult, GeoInfo, ProxyRecord, ProxySourceConfig, ProxyStatus } from './types';
 
 export class DatabaseManager {
   private db: SqliteDatabase | null = null;
+  private totalDedupFiltered: number = 0;
 
   constructor() {
     this.init();
@@ -49,6 +50,16 @@ export class DatabaseManager {
         CREATE INDEX IF NOT EXISTS idx_proxies_protocol ON proxies(protocol);
         CREATE INDEX IF NOT EXISTS idx_proxies_country ON proxies(country_code);
         CREATE INDEX IF NOT EXISTS idx_proxies_latency ON proxies(latency_ms);
+
+        CREATE TABLE IF NOT EXISTS candidate_queue (
+          id TEXT PRIMARY KEY,
+          ip TEXT NOT NULL,
+          port INTEGER NOT NULL,
+          protocol TEXT NOT NULL,
+          source_id TEXT NOT NULL,
+          added_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_candidate_queue_added ON candidate_queue(added_at);
 
         CREATE TABLE IF NOT EXISTS sources (
           id TEXT PRIMARY KEY,
@@ -148,6 +159,121 @@ export class DatabaseManager {
   }
 
   /**
+   * Enqueue raw candidates into central basket with smart deduplication and cooldown filtering
+   */
+  enqueueCandidates(items: CheckQueueItem[]): { enqueued: number; dedupSkipped: number } {
+    if (!this.db || items.length === 0) return { enqueued: 0, dedupSkipped: 0 };
+
+    const now = Date.now();
+    const nowIso = new Date(now).toISOString();
+    const cooldownCutoff = new Date(now - APP_CONFIG.DEDUP_COOLDOWN_MINUTES * 60 * 1000).toISOString();
+
+    let enqueued = 0;
+    let dedupSkipped = 0;
+
+    const checkExistingStmt = this.db.prepare(
+      'SELECT status, last_checked_at FROM proxies WHERE id = ?'
+    );
+    const checkQueueStmt = this.db.prepare(
+      'SELECT id FROM candidate_queue WHERE id = ?'
+    );
+    const insertQueueStmt = this.db.prepare(`
+      INSERT OR IGNORE INTO candidate_queue (id, ip, port, protocol, source_id, added_at)
+      VALUES ($id, $ip, $port, $protocol, $source_id, $added_at);
+    `);
+    const updateSourceStmt = this.db.prepare(`
+      UPDATE proxies SET source_id = ? WHERE id = ?;
+    `);
+
+    this.db.transaction(() => {
+      for (const item of items) {
+        // 1. Check if already waiting in central basket
+        const inQueue = checkQueueStmt.get(item.id);
+        if (inQueue) {
+          dedupSkipped++;
+          continue;
+        }
+
+        // 2. Check existing record in proxies table
+        const existing = checkExistingStmt.get(item.id) as { status: string; last_checked_at: string } | undefined;
+        if (existing) {
+          // If already verified live in the pool, just refresh source attribution, skip candidate re-screening
+          if (existing.status === 'live') {
+            updateSourceStmt.run(item.sourceId, item.id);
+            dedupSkipped++;
+            continue;
+          }
+
+          // If checked recently within cooldown window (3m), skip redundant socket test
+          if (existing.last_checked_at && existing.last_checked_at >= cooldownCutoff) {
+            dedupSkipped++;
+            continue;
+          }
+        }
+
+        // 3. New / eligible candidate -> insert into central basket
+        const res = insertQueueStmt.run({
+          $id: item.id,
+          $ip: item.ip,
+          $port: item.port,
+          $protocol: item.protocol,
+          $source_id: item.sourceId,
+          $added_at: nowIso,
+        });
+
+        if (res.changes > 0) {
+          enqueued++;
+        } else {
+          dedupSkipped++;
+        }
+      }
+    })();
+
+    this.totalDedupFiltered += dedupSkipped;
+    return { enqueued, dedupSkipped };
+  }
+
+  /**
+   * Dequeue batch of candidates from central basket for screening worker
+   */
+  dequeueCandidates(limit = APP_CONFIG.SCREENING_BATCH_SIZE): CheckQueueItem[] {
+    if (!this.db) return [];
+    const rows = this.db
+      .prepare('SELECT id, ip, port, protocol, source_id as sourceId FROM candidate_queue ORDER BY added_at ASC LIMIT ?')
+      .all(limit) as any[];
+    return rows;
+  }
+
+  /**
+   * Remove screened candidates from central basket
+   */
+  removeCandidates(ids: string[]): void {
+    if (!this.db || ids.length === 0) return;
+    const stmt = this.db.prepare('DELETE FROM candidate_queue WHERE id = ?');
+    this.db.transaction(() => {
+      for (const id of ids) {
+        stmt.run(id);
+      }
+    })();
+  }
+
+  /**
+   * Get count of candidates currently waiting in central basket
+   */
+  getCandidateQueueCount(): number {
+    if (!this.db) return 0;
+    const row = this.db.prepare('SELECT COUNT(*) as count FROM candidate_queue').get() as any;
+    return row?.count || 0;
+  }
+
+  /**
+   * Get total deduplication socket tests saved
+   */
+  getDedupSavedCount(): number {
+    return this.totalDedupFiltered;
+  }
+
+  /**
    * Update proxy after check result
    */
   updateCheckResult(result: CheckResult, geo?: GeoInfo) {
@@ -233,6 +359,12 @@ export class DatabaseManager {
     if (!this.db) return 0;
     const res = this.db.prepare("DELETE FROM proxies WHERE status = 'dead'").run();
     return res.changes;
+  }
+
+  deleteProxy(id: string): boolean {
+    if (!this.db) return false;
+    const res = this.db.prepare('DELETE FROM proxies WHERE id = ?').run(id);
+    return res.changes > 0;
   }
 
   /**
@@ -393,6 +525,8 @@ export class DatabaseManager {
       avgLatency: Math.round(totalRow?.avg_latency || 0),
       byProtocol,
       byCountry,
+      candidateQueueCount: this.getCandidateQueueCount(),
+      dedupSavedTotal: this.getDedupSavedCount(),
     };
   }
 

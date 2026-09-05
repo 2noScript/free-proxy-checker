@@ -59,6 +59,14 @@ export interface ProxySourceConfig {
   lastFetchedCount?: number;
 }
 
+export interface CheckQueueItem {
+  id: string;
+  ip: string;
+  port: number;
+  protocol: ProxyProtocol;
+  sourceId: string;
+}
+
 export interface SystemStats {
   totalProxies: number;
   liveProxies: number;

@@ -1,15 +1,15 @@
 import { APP_CONFIG } from '../config';
 import { db } from '../db';
-import { ingestionRunner, maintenanceRunner } from '../checker/queue-runner';
+import { candidateWorker } from '../checker/candidate-worker';
+import { maintenanceRunner } from '../checker/queue-runner';
 import { sourceFetcher } from '../sources/source-fetcher';
 import type { ProxySourceConfig } from '../types';
 
 export class PyramidScheduler {
   private sources: ProxySourceConfig[] = [];
 
-  // Stream 1: Source Ingestion State
-  private isIngestionRunning = false;
-  private activeIngestionTask: string | null = null;
+  // Stream 1: Source Ingestion (Producers)
+  private activeFetchingSources = new Set<string>();
   private ingestionTimer: Timer | null = null;
 
   // Stream 2: 3-Min Live Pool Maintenance State
@@ -38,10 +38,10 @@ export class PyramidScheduler {
 
   start() {
     console.log('⏱️ [Pyramid Scheduler] Initializing Dual-Stream Parallel Engine...');
-    console.log('⚡ Stream 1: Ingestion Loop (Every 5s tick)');
+    console.log('⚡ Stream 1: Producer Fetch Loop (Every 5s tick -> Central Basket)');
     console.log('🔄 Stream 2: Maintenance Loop (Dedicated 3-Min Live Pool interval)');
 
-    // 1. Ingestion Loop (Every 5 seconds)
+    // 1. Ingestion / Producer Loop (Every 5 seconds)
     this.ingestionTimer = setInterval(() => {
       this.tickIngestion();
     }, 5000);
@@ -54,6 +54,9 @@ export class PyramidScheduler {
     // Initial immediate ticks
     setTimeout(() => this.tickIngestion(), 1000);
     setTimeout(() => this.tickMaintenance(), 2000);
+
+    // Check if basket has leftover items from previous run
+    setTimeout(() => candidateWorker.wakeUp(), 3000);
   }
 
   stop() {
@@ -68,81 +71,69 @@ export class PyramidScheduler {
   }
 
   // =========================================================================
-  // STREAM 1: SOURCE INGESTION & CANDIDATE SCREENING
+  // STREAM 1: SOURCE INGESTION (PRODUCER) -> CENTRAL CANDIDATE BASKET
   // =========================================================================
 
   async tickIngestion() {
-    if (this.isIngestionRunning || ingestionRunner.getIsRunning()) {
-      return;
-    }
-
     this.sources = db.getSources();
     const now = Date.now();
 
-    const dueSources = this.sources
-      .filter((s) => s.enabled && (!s.nextFetchAt || now >= new Date(s.nextFetchAt).getTime()))
-      .sort((a, b) => {
-        const timeA = a.nextFetchAt ? new Date(a.nextFetchAt).getTime() : 0;
-        const timeB = b.nextFetchAt ? new Date(b.nextFetchAt).getTime() : 0;
-        return timeA - timeB;
+    const dueSources = this.sources.filter(
+      (s) => s.enabled && !this.activeFetchingSources.has(s.id) && (!s.nextFetchAt || now >= new Date(s.nextFetchAt).getTime())
+    );
+
+    // Each due source fetches independently without blocking any other source
+    for (const source of dueSources) {
+      this.fetchAndEnqueueSource(source).catch((err) => {
+        console.error(`❌ [Ingestion Error] Source [${source.name}]:`, err?.message || err);
+      });
+    }
+  }
+
+  /**
+   * Fetch a source and push new valid candidates to central basket
+   */
+  async fetchAndEnqueueSource(source: ProxySourceConfig) {
+    if (this.activeFetchingSources.has(source.id)) return;
+    this.activeFetchingSources.add(source.id);
+
+    // Schedule next run immediately based on fetchIntervalMinutes to avoid any drift
+    const nextTime = new Date(Date.now() + source.fetchIntervalMinutes * 60 * 1000).toISOString();
+    db.updateSource(source.id, { nextFetchAt: nextTime });
+
+    console.log(`📥 [Source Fetcher] Fetching source [${source.name}] (${source.url})...`);
+
+    try {
+      const rawItems = await sourceFetcher.fetchSource(source);
+      const fetchedCount = rawItems.length;
+      const fetchedAt = new Date().toISOString();
+
+      // Enqueue into central basket with smart deduplication & 3m cooldown filter
+      const { enqueued, dedupSkipped } = db.enqueueCandidates(rawItems);
+
+      db.updateSource(source.id, {
+        lastFetchedCount: fetchedCount,
+        lastFetchedAt: fetchedAt,
       });
 
-    if (dueSources.length > 0 && dueSources[0]) {
-      const targetSource = dueSources[0];
-      await this.triggerSourceIngestion(targetSource);
+      console.log(
+        `✅ [Basket Harvest] [${source.name}]: Got ${fetchedCount} | Enqueued ${enqueued} to Basket | Skipped ${dedupSkipped} (Dedup / Cooldown)`
+      );
+
+      // Wake up screening worker if new items arrived
+      if (enqueued > 0) {
+        candidateWorker.wakeUp();
+      }
+    } catch (err: any) {
+      console.error(`❌ [Fetch Error] [${source.name}]:`, err?.message || err);
+    } finally {
+      this.activeFetchingSources.delete(source.id);
+      this.sources = db.getSources();
     }
   }
 
   async triggerSourceIngestion(source: ProxySourceConfig) {
-    if (this.isIngestionRunning) return;
-    this.isIngestionRunning = true;
-    this.activeIngestionTask = `Ingestion: ${source.name}`;
-
-    console.log(`🚀 [Ingestion Cycle] Starting source [${source.name}] (Interval: ${source.fetchIntervalMinutes}m)...`);
-
-    try {
-      const rawItems = await sourceFetcher.fetchSource(source);
-      source.lastFetchedCount = rawItems.length;
-      source.lastFetchedAt = new Date().toISOString();
-
-      db.updateSource(source.id, {
-        lastFetchedCount: source.lastFetchedCount,
-        lastFetchedAt: source.lastFetchedAt,
-      });
-
-      if (rawItems.length > 0) {
-        db.batchUpsertRawProxies(rawItems);
-
-        console.log(`🧪 [Screening Tier] Verifying ${rawItems.length} candidate proxies from [${source.name}]...`);
-        const { liveCount, deadCount } = await ingestionRunner.runBatch(
-          rawItems,
-          APP_CONFIG.CONCURRENCY_LIMIT,
-          `Screening: ${source.name}`
-        );
-        console.log(`✅ [Screening Tier Done] [${source.name}]: ${liveCount} Live | ${deadCount} Dead`);
-
-        // Automatically purge dead candidate proxies
-        const pruned = db.pruneDeadProxies();
-        if (pruned > 0) {
-          console.log(`🧹 [Auto-Prune] Purged ${pruned} dead candidate proxies from DB.`);
-        }
-      }
-    } catch (err: any) {
-      console.error(`❌ [Ingestion Error] [${source.name}]:`, err?.message || err);
-    } finally {
-      const finishTime = Date.now();
-      source.nextFetchAt = new Date(finishTime + source.fetchIntervalMinutes * 60 * 1000).toISOString();
-
-      db.updateSource(source.id, {
-        nextFetchAt: source.nextFetchAt,
-        lastFetchedCount: source.lastFetchedCount,
-        lastFetchedAt: source.lastFetchedAt,
-      });
-
-      this.sources = db.getSources();
-      this.isIngestionRunning = false;
-      this.activeIngestionTask = null;
-    }
+    await this.fetchAndEnqueueSource(source);
   }
 
   // =========================================================================
@@ -241,10 +232,14 @@ export class PyramidScheduler {
   }
 
   getStatus() {
+    const workerStatus = candidateWorker.getStatus();
     return {
       ingestion: {
-        isRunning: this.isIngestionRunning || ingestionRunner.getIsRunning(),
-        activeTask: this.activeIngestionTask || ingestionRunner.getCurrentJobName() || null,
+        isRunning: workerStatus.isProcessing,
+        activeTask: workerStatus.activeTask,
+        queueSize: workerStatus.queueCount,
+        dedupSavedTotal: workerStatus.dedupSavedTotal,
+        fetchingSources: Array.from(this.activeFetchingSources),
       },
       maintenance: {
         intervalMinutes: APP_CONFIG.MAINTENANCE_INTERVAL_MINUTES,

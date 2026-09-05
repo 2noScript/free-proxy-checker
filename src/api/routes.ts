@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { streamSSE } from 'hono/streaming';
+import { candidateWorker } from '../checker/candidate-worker';
 import { ingestionRunner, maintenanceRunner } from '../checker/queue-runner';
 import { socketChecker } from '../checker/socket-checker';
 import { db } from '../db';
@@ -155,6 +156,8 @@ export function createApiRouter() {
       if (targetSource) {
         scheduler.triggerSourceIngestion(targetSource);
       }
+    } else if (type === 'worker') {
+      candidateWorker.wakeUp();
     } else {
       scheduler.triggerMaintenanceCycle();
     }
