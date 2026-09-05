@@ -85,17 +85,28 @@
       </div>
 
       <!-- Stream 2: 3-Min Live Pool Maintenance Progress -->
-      <div id="progress-maint-container" class="glass-card p-4 rounded-2xl border-emerald-500/30 transition-all shadow-sm">
-        <div class="flex items-center justify-between text-xs font-semibold mb-2">
-          <span class="text-emerald-400 flex items-center gap-2 truncate max-w-[280px]">
-            <i id="progress-maint-icon" class="fa-solid fa-shield-halved text-slate-500 text-xs"></i>
-            <span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-mono">STREAM 2: 3M POOL</span>
-            <span id="progress-maint-job-name" class="truncate font-sans text-slate-300 font-normal">Idle • 3-Min Pool Check</span>
-          </span>
-          <span id="progress-maint-text" class="text-slate-400 font-mono text-[11px]">Standby</span>
+      <div id="progress-maint-container" class="glass-card p-4 rounded-2xl border-emerald-500/30 transition-all shadow-sm flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between text-xs font-semibold mb-2">
+            <span class="text-emerald-400 flex items-center gap-2 truncate max-w-[280px]">
+              <i id="progress-maint-icon" class="fa-solid fa-shield-halved text-slate-500 text-xs"></i>
+              <span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-mono">STREAM 2: 3M POOL</span>
+              <span id="progress-maint-job-name" class="truncate font-sans text-slate-300 font-normal">Idle • 3-Min Pool Check</span>
+            </span>
+            <div class="flex items-center gap-2">
+              <span id="progress-maint-text" class="text-slate-400 font-mono text-[11px]">Standby</span>
+              <button onclick="triggerMaintenanceNow()" id="btn-trigger-maint" class="px-2 py-0.5 text-[10px] rounded bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 font-mono transition flex items-center gap-1" title="Trigger 3-Min Maintenance Check immediately">
+                <i class="fa-solid fa-play text-[9px]"></i> Run Now
+              </button>
+            </div>
+          </div>
+          <div class="w-full bg-slate-900/90 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-700/50">
+            <div id="progress-maint-bar" class="bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 h-1.5 rounded-full transition-all duration-300 shadow-sm" style="width: 0%"></div>
+          </div>
         </div>
-        <div class="w-full bg-slate-900/90 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-700/50">
-          <div id="progress-maint-bar" class="bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 h-1.5 rounded-full transition-all duration-300 shadow-sm" style="width: 0%"></div>
+        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-2 font-mono">
+          <span id="maint-last-summary">Last cycle: Verified live pool</span>
+          <span id="maint-card-countdown" class="text-emerald-400 font-bold">Next in ~3m</span>
         </div>
       </div>
     </div>
@@ -389,6 +400,8 @@
     let pageSize = 50;
     let totalPages = 1;
     let totalCount = 0;
+    let nextMaintenanceDate = null;
+    let isMaintenanceActive = false;
 
     async function loadStats() {
       try {
@@ -428,12 +441,61 @@
         updateSourceFilterOptions(cachedSources);
 
         if (data.maintenance?.nextRunAt) {
-          const nextDate = new Date(data.maintenance.nextRunAt);
-          const diffSec = Math.max(0, Math.round((nextDate.getTime() - Date.now()) / 1000));
-          document.getElementById('maint-countdown').innerHTML = `<i class="fa-solid fa-clock-rotate-left text-emerald-400"></i> Next 3m Pool Check in ~${diffSec}s`;
+          nextMaintenanceDate = new Date(data.maintenance.nextRunAt);
+          isMaintenanceActive = !!data.maintenance.isRunning;
+          updateMaintenanceCountdown();
         }
       } catch (err) {
         console.error('Error loading stats:', err);
+      }
+    }
+
+    function updateMaintenanceCountdown() {
+      const el = document.getElementById('maint-countdown');
+      const cardCountEl = document.getElementById('maint-card-countdown');
+
+      if (isMaintenanceActive) {
+        if (el) el.innerHTML = `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse font-mono font-bold text-xs"><i class="fa-solid fa-arrows-rotate fa-spin text-emerald-400"></i> Re-verifying Live Pool Now...</span>`;
+        if (cardCountEl) cardCountEl.innerHTML = `<span class="text-emerald-300 animate-pulse font-bold"><i class="fa-solid fa-arrows-rotate fa-spin text-[10px] mr-1"></i> Running...</span>`;
+        return;
+      }
+
+      if (!nextMaintenanceDate) {
+        if (el) el.innerHTML = `<i class="fa-solid fa-clock-rotate-left text-emerald-400"></i> Next 3m Pool Check: Standby`;
+        if (cardCountEl) cardCountEl.innerText = `Next in ~3m`;
+        return;
+      }
+
+      const diffSec = Math.max(0, Math.round((nextMaintenanceDate.getTime() - Date.now()) / 1000));
+      if (diffSec <= 0) {
+        if (el) el.innerHTML = `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 font-mono text-xs"><i class="fa-solid fa-spinner fa-spin text-emerald-400"></i> Starting Pool Check...</span>`;
+        if (cardCountEl) cardCountEl.innerText = `Starting...`;
+      } else {
+        const mins = Math.floor(diffSec / 60);
+        const secs = diffSec % 60;
+        const timeStr = mins > 0 ? `${mins}m ${secs < 10 ? '0' : ''}${secs}s` : `${secs}s`;
+        if (el) el.innerHTML = `<i class="fa-solid fa-clock-rotate-left text-emerald-400"></i> Next 3m Pool Check in <strong class="text-emerald-300 font-bold">${timeStr}</strong>`;
+        if (cardCountEl) cardCountEl.innerText = `Next in ~${timeStr}`;
+      }
+    }
+
+    async function triggerMaintenanceNow() {
+      const btn = document.getElementById('btn-trigger-maint');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-[9px]"></i> Starting...`;
+      }
+      try {
+        await fetch('/api/trigger-scan?type=maintenance', { method: 'POST' });
+      } catch (e) {
+        console.error('Trigger maintenance error:', e);
+      } finally {
+        setTimeout(() => {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-play text-[9px]"></i> Run Now`;
+          }
+        }, 3000);
       }
     }
 
@@ -746,10 +808,16 @@
         const streamType = data.stream || (data.jobName?.includes('3-Min') ? 'maint' : 'ingest');
 
         if (streamType === 'maint') {
+          isMaintenanceActive = true;
+          updateMaintenanceCountdown();
+          const card = document.getElementById('progress-maint-container');
+          if (card) card.classList.add('border-emerald-400', 'ring-1', 'ring-emerald-400/50', 'shadow-lg', 'shadow-emerald-500/20');
+
           const icon = document.getElementById('progress-maint-icon');
           const jobNameEl = document.getElementById('progress-maint-job-name');
           const bar = document.getElementById('progress-maint-bar');
           const textEl = document.getElementById('progress-maint-text');
+          const lastSummaryEl = document.getElementById('maint-last-summary');
 
           if (icon) icon.className = 'fa-solid fa-arrows-rotate fa-spin text-emerald-400 text-xs';
           if (data.jobName && jobNameEl) {
@@ -759,16 +827,22 @@
 
           const pct = Math.round((data.checked / data.total) * 100);
           if (bar) bar.style.width = `${pct}%`;
-          if (textEl) textEl.innerText = `${data.checked} / ${data.total} (${pct}% • ${data.live} live, ${data.dead} pruned)`;
+          const summaryStr = `${data.checked}/${data.total} (${pct}%) • ${data.live} live, ${data.dead} pruned`;
+          if (textEl) textEl.innerText = summaryStr;
+          if (lastSummaryEl) lastSummaryEl.innerText = `Running: ${summaryStr}`;
 
           if (data.checked >= data.total) {
             setTimeout(() => {
+              isMaintenanceActive = false;
+              updateMaintenanceCountdown();
+              if (card) card.classList.remove('border-emerald-400', 'ring-1', 'ring-emerald-400/50', 'shadow-lg', 'shadow-emerald-500/20');
               if (icon) icon.className = 'fa-solid fa-shield-halved text-slate-500 text-xs';
               if (jobNameEl) {
                 jobNameEl.innerText = 'Idle • 3-Min Pool Check';
                 jobNameEl.className = 'truncate font-sans text-slate-300 font-normal';
               }
-              if (textEl) textEl.innerText = 'Standby';
+              if (textEl) textEl.innerText = `${data.live} Live / ${data.dead} Pruned`;
+              if (lastSummaryEl) lastSummaryEl.innerText = `Last cycle: ${data.live} Live • ${data.dead} Pruned`;
               if (bar) bar.style.width = '0%';
               loadStats();
               loadProxies();
@@ -811,6 +885,7 @@
     loadStats();
     loadProxies();
     initSSE();
+    setInterval(updateMaintenanceCountdown, 1000);
     setInterval(() => {
       loadStats();
       loadProxies();
