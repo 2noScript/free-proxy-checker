@@ -22,11 +22,77 @@ export class SourceFetcher {
       }
 
       const text = await response.text();
-      const parsed = this.parseTextLines(text, source);
+      const parsed = source.format === 'json' 
+        ? this.parseJson(text, source) 
+        : this.parseTextLines(text, source);
       console.log(`✅ [Source Fetcher] Parsed ${parsed.length} proxies from [${source.name}]`);
       return parsed;
     } catch (err: any) {
       console.error(`❌ [Source Fetcher Error] Failed fetching [${source.name}]:`, err?.message || err);
+      return [];
+    }
+  }
+
+  /**
+   * Parse JSON payload with flexible format detection (GeoNode and standard arrays)
+   */
+  private parseJson(text: string, source: ProxySourceConfig): CheckQueueItem[] {
+    try {
+      const json = JSON.parse(text);
+      const rows: any[] = Array.isArray(json) 
+        ? json 
+        : (Array.isArray(json?.data) ? json.data : (Array.isArray(json?.proxies) ? json.proxies : []));
+      
+      const seen = new Set<string>();
+      const items: CheckQueueItem[] = [];
+
+      for (const row of rows) {
+        if (!row || typeof row !== 'object') continue;
+        const ip = String(row.ip || row.host || '').trim();
+        const port = Number.parseInt(String(row.port || ''), 10);
+
+        if (!this.isValidIp(ip) || Number.isNaN(port) || port <= 0 || port > 65535) {
+          continue;
+        }
+
+        // Determine protocol(s) from payload
+        const candidateProtocols: ProxyProtocol[] = [];
+        if (Array.isArray(row.protocols) && row.protocols.length > 0) {
+          for (const p of row.protocols) {
+            const protoStr = String(p).toLowerCase();
+            if (protoStr === 'socks5' || protoStr === 'socks4' || protoStr === 'http' || protoStr === 'https') {
+              candidateProtocols.push(protoStr as ProxyProtocol);
+            }
+          }
+        } else if (typeof row.protocol === 'string') {
+          const protoStr = row.protocol.toLowerCase();
+          if (protoStr === 'socks5' || protoStr === 'socks4' || protoStr === 'http' || protoStr === 'https') {
+            candidateProtocols.push(protoStr as ProxyProtocol);
+          }
+        }
+
+        if (candidateProtocols.length === 0) {
+          candidateProtocols.push(source.defaultProtocol || 'http');
+        }
+
+        for (const protocol of candidateProtocols) {
+          const id = `${protocol}://${ip}:${port}`;
+          if (!seen.has(id)) {
+            seen.add(id);
+            items.push({
+              id,
+              ip,
+              port,
+              protocol,
+              sourceId: source.id,
+            });
+          }
+        }
+      }
+
+      return items;
+    } catch (err: any) {
+      console.error(`❌ [Source Fetcher JSON Error] Failed parsing JSON from [${source.name}]:`, err?.message || err);
       return [];
     }
   }

@@ -91,6 +91,23 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     fetchIntervalMinutes: 15,
     enabled: true,
   },
+  // --- GeoNode Live REST API (JSON, 100% Non-GitHub) ---
+  {
+    id: 'geonode-page1',
+    name: 'GeoNode Live Proxies (Page 1)',
+    url: 'https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc',
+    format: 'json',
+    fetchIntervalMinutes: 15,
+    enabled: true,
+  },
+  {
+    id: 'geonode-page2',
+    name: 'GeoNode Live Proxies (Page 2)',
+    url: 'https://proxylist.geonode.com/api/proxy-list?limit=500&page=2&sort_by=lastChecked&sort_type=desc',
+    format: 'json',
+    fetchIntervalMinutes: 30,
+    enabled: true,
+  },
   // --- Hookzof Dedicated SOCKS5 ---
   {
     id: 'hookzof-socks5',
