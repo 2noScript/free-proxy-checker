@@ -20,6 +20,12 @@
     .glow-amber { box-shadow: 0 0 20px -5px rgba(245, 158, 11, 0.3); }
     .glow-emerald { box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.3); }
     .glow-indigo { box-shadow: 0 0 20px -5px rgba(99, 102, 241, 0.3); }
+    
+    /* Sleek Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); border-radius: 8px; }
+    ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.4); border-radius: 8px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.7); }
   </style>
 </head>
 <body class="min-h-screen flex flex-col p-3 md:p-6 lg:p-8">
@@ -186,8 +192,8 @@
         </div>
       </div>
 
-      <!-- Ingested Sources Grid -->
-      <div id="sources-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+      <!-- Ingested Sources Grid with Scroll -->
+      <div id="sources-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 max-h-[360px] overflow-y-auto pr-1.5 scroll-smooth">
         <div class="p-6 text-center text-slate-500 col-span-full">
           <i class="fa-solid fa-spinner fa-spin text-lg mb-2"></i><br>
           Loading registered sources...
@@ -199,7 +205,6 @@
     <div class="glass-card rounded-2xl overflow-hidden shadow-2xl border-slate-700/50">
       <div class="p-5 border-b border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div class="flex items-center gap-3">
-          <h3 class="font-bold text-slate-100 text-base">Proxies</h3>
           <span id="table-count" class="px-2.5 py-0.5 text-xs bg-slate-800/90 text-amber-400 font-mono font-bold rounded-md border border-slate-700">
             0 items
           </span>
@@ -209,11 +214,11 @@
           <!-- Search Box -->
           <div class="relative">
             <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
-            <input id="filter-search" type="text" placeholder="Search IP, Port, City..." oninput="loadProxies()" class="glass-input text-xs text-slate-200 rounded-xl pl-8 pr-3 py-2 outline-none w-44 focus:border-amber-500 transition">
+            <input id="filter-search" type="text" placeholder="Search IP, Port, City..." oninput="onFilterChange()" class="glass-input text-xs text-slate-200 rounded-xl pl-8 pr-3 py-2 outline-none w-44 focus:border-amber-500 transition">
           </div>
 
           <!-- Protocol Filter -->
-          <select id="filter-protocol" onchange="loadProxies()" class="glass-input text-xs text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer">
+          <select id="filter-protocol" onchange="onFilterChange()" class="glass-input text-xs text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer">
             <option value="">All Protocols</option>
             <option value="socks5">🟣 SOCKS5</option>
             <option value="socks4">🌸 SOCKS4</option>
@@ -222,12 +227,12 @@
           </select>
 
           <!-- Source Filter (Dynamic) -->
-          <select id="filter-source" onchange="loadProxies()" class="glass-input text-xs text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer">
+          <select id="filter-source" onchange="onFilterChange()" class="glass-input text-xs text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer">
             <option value="">All Sources</option>
           </select>
 
           <!-- Country Filter -->
-          <select id="filter-country" onchange="loadProxies()" class="glass-input text-xs text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer">
+          <select id="filter-country" onchange="onFilterChange()" class="glass-input text-xs text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer">
             <option value="">All Countries</option>
             <option value="US">🇺🇸 United States</option>
             <option value="VN">🇻🇳 Vietnam</option>
@@ -243,7 +248,7 @@
           </select>
 
           <!-- Max Ping Filter -->
-          <select id="filter-ping" onchange="loadProxies()" class="glass-input text-xs text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer">
+          <select id="filter-ping" onchange="onFilterChange()" class="glass-input text-xs text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer">
             <option value="">All Latencies</option>
             <option value="250">⚡ Ping &lt; 250ms</option>
             <option value="500">🟡 Ping &lt; 500ms</option>
@@ -251,34 +256,29 @@
           </select>
 
           <!-- Status Filter -->
-          <select id="filter-status" onchange="loadProxies()" class="glass-input text-xs text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer">
+          <select id="filter-status" onchange="onFilterChange()" class="glass-input text-xs text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer">
             <option value="live">Live Only</option>
             <option value="">All Statuses</option>
             <option value="warning">Warning</option>
             <option value="dead">Dead</option>
           </select>
-
-          <!-- Copy All Live -->
-          <button onclick="copyLiveProxies()" class="px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl flex items-center gap-1.5 transition">
-            <i class="fa-solid fa-copy text-amber-400"></i> Copy Live
-          </button>
         </div>
       </div>
 
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto overflow-y-auto max-h-[560px] relative scroll-smooth">
         <table class="w-full text-left text-xs text-slate-300">
-          <thead class="bg-slate-900/80 text-slate-400 uppercase font-semibold border-b border-slate-800 text-[11px] tracking-wider">
+          <thead class="bg-slate-900 sticky top-0 z-10 text-slate-400 uppercase font-semibold border-b border-slate-800 text-[11px] tracking-wider shadow-sm">
             <tr>
-              <th class="p-4">Proxy Endpoint</th>
-              <th class="p-4">Protocol</th>
-              <th class="p-4">Source</th>
-              <th class="p-4">Country & Flag</th>
-              <th class="p-4">City / Region</th>
-              <th class="p-4">Ping (Latency)</th>
-              <th class="p-4">Anonymity</th>
-              <th class="p-4">Status</th>
-              <th class="p-4">Fails</th>
-              <th class="p-4">Last Checked</th>
+              <th class="p-4 bg-slate-900">Proxy Endpoint</th>
+              <th class="p-4 bg-slate-900">Protocol</th>
+              <th class="p-4 bg-slate-900">Source</th>
+              <th class="p-4 bg-slate-900">Country & Flag</th>
+              <th class="p-4 bg-slate-900">City / Region</th>
+              <th class="p-4 bg-slate-900">Ping (Latency)</th>
+              <th class="p-4 bg-slate-900">Anonymity</th>
+              <th class="p-4 bg-slate-900">Status</th>
+              <th class="p-4 bg-slate-900">Fails</th>
+              <th class="p-4 bg-slate-900">Last Checked</th>
             </tr>
           </thead>
           <tbody id="proxy-table-body" class="divide-y divide-slate-800/60 font-mono">
@@ -290,6 +290,44 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Pagination Toolbar -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 border-t border-slate-800/80 bg-slate-900/40 text-xs text-slate-400">
+        <div class="flex items-center gap-3">
+          <span id="page-summary" class="font-medium text-slate-300">Showing 0 - 0 of 0</span>
+          <span class="text-slate-700">|</span>
+          <div class="flex items-center gap-1.5">
+            <span>Per page:</span>
+            <select id="filter-page-size" onchange="changePageSize(this.value)" class="glass-input text-xs text-slate-200 rounded-lg px-2 py-1 outline-none cursor-pointer">
+              <option value="25">25</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5" id="pagination-controls">
+          <button id="btn-page-first" onclick="goToPage(1)" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 transition font-mono" title="First Page">
+            <i class="fa-solid fa-angles-left"></i>
+          </button>
+          <button id="btn-page-prev" onclick="goToPrevPage()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 transition flex items-center gap-1 font-medium" title="Previous Page">
+            <i class="fa-solid fa-chevron-left text-[10px]"></i> Prev
+          </button>
+          <div class="px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/50 text-slate-200 font-mono text-xs flex items-center gap-1">
+            <span>Page</span>
+            <span id="current-page-num" class="font-bold text-amber-400">1</span>
+            <span>of</span>
+            <span id="total-pages-num" class="font-bold text-slate-300">1</span>
+          </div>
+          <button id="btn-page-next" onclick="goToNextPage()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 transition flex items-center gap-1 font-medium" title="Next Page">
+            Next <i class="fa-solid fa-chevron-right text-[10px]"></i>
+          </button>
+          <button id="btn-page-last" onclick="goToLastPage()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 transition font-mono" title="Last Page">
+            <i class="fa-solid fa-angles-right"></i>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -347,6 +385,10 @@
   <script>
     let sseSource = null;
     let cachedSources = [];
+    let currentPage = 1;
+    let pageSize = 50;
+    let totalPages = 1;
+    let totalCount = 0;
 
     async function loadStats() {
       try {
@@ -472,6 +514,44 @@
       select.innerHTML = html;
     }
 
+    function onFilterChange() {
+      currentPage = 1;
+      loadProxies();
+    }
+
+    function goToPage(page) {
+      if (page < 1 || page > totalPages || page === currentPage) return;
+      currentPage = page;
+      loadProxies();
+    }
+
+    function goToPrevPage() {
+      if (currentPage > 1) {
+        currentPage--;
+        loadProxies();
+      }
+    }
+
+    function goToNextPage() {
+      if (currentPage < totalPages) {
+        currentPage++;
+        loadProxies();
+      }
+    }
+
+    function goToLastPage() {
+      if (currentPage < totalPages) {
+        currentPage = totalPages;
+        loadProxies();
+      }
+    }
+
+    function changePageSize(newSize) {
+      pageSize = Number(newSize);
+      currentPage = 1;
+      loadProxies();
+    }
+
     async function loadProxies() {
       const search = document.getElementById('filter-search').value.trim();
       const protocol = document.getElementById('filter-protocol').value;
@@ -488,12 +568,32 @@
       if (ping) url += `max_latency=${ping}&`;
       if (status && status !== 'live') url += `status=${status}&`;
 
+      // Pass pagination parameters
+      url += `limit=${pageSize}&page=${currentPage}`;
+
       try {
         const res = await fetch(url);
         const data = await res.json();
         const proxies = data.proxies || [];
 
-        document.getElementById('table-count').innerText = `${proxies.length} items`;
+        totalCount = data.total !== undefined ? data.total : (data.count || proxies.length);
+        totalPages = data.totalPages || Math.ceil(totalCount / pageSize) || 1;
+        currentPage = data.page || currentPage;
+
+        document.getElementById('table-count').innerText = `${totalCount.toLocaleString()} items`;
+
+        // Update pagination toolbar UI
+        const startIdx = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+        const endIdx = Math.min(startIdx + proxies.length - 1, totalCount);
+        document.getElementById('page-summary').innerText = `Showing ${startIdx.toLocaleString()} - ${endIdx.toLocaleString()} of ${totalCount.toLocaleString()}`;
+        document.getElementById('current-page-num').innerText = currentPage;
+        document.getElementById('total-pages-num').innerText = totalPages;
+
+        document.getElementById('btn-page-first').disabled = currentPage <= 1;
+        document.getElementById('btn-page-prev').disabled = currentPage <= 1;
+        document.getElementById('btn-page-next').disabled = currentPage >= totalPages;
+        document.getElementById('btn-page-last').disabled = currentPage >= totalPages;
+
         const tbody = document.getElementById('proxy-table-body');
 
         if (proxies.length === 0) {
@@ -510,6 +610,7 @@
             <tr class="hover:bg-slate-800/40 transition">
               <td class="p-4 font-semibold text-slate-100 flex items-center gap-2">
                 <span>${p.id}</span>
+                ${p.username ? `<span class="px-1.5 py-0.5 text-[9px] rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono font-bold" title="Authenticated Proxy (${p.username})"><i class="fa-solid fa-key mr-1"></i>AUTH</span>` : ''}
                 <button onclick="navigator.clipboard.writeText('${p.id}')" class="text-slate-500 hover:text-amber-400 transition" title="Copy endpoint">
                   <i class="fa-solid fa-copy text-[10px]"></i>
                 </button>

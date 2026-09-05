@@ -25,6 +25,8 @@ export interface ProxyRecord {
   isp: string;
   anonymity: AnonymityLevel;
   sourceId: string;
+  username?: string;
+  password?: string;
   successCount: number;
   failCount: number;
   consecutiveFails: number;
@@ -38,6 +40,8 @@ export interface CheckResult {
   ip: string;
   port: number;
   protocol: ProxyProtocol;
+  username?: string;
+  password?: string;
   isAlive: boolean;
   latencyMs: number;
   error?: string;
@@ -65,6 +69,8 @@ export interface CheckQueueItem {
   port: number;
   protocol: ProxyProtocol;
   sourceId: string;
+  username?: string;
+  password?: string;
 }
 
 export interface SystemStats {

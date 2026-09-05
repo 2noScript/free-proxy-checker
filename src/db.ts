@@ -30,6 +30,8 @@ export class DatabaseManager {
           port INTEGER NOT NULL,
           protocol TEXT NOT NULL,
           status TEXT NOT NULL,
+          username TEXT,
+          password TEXT,
           latency_ms INTEGER DEFAULT 0,
           country_code TEXT DEFAULT 'N/A',
           country_name TEXT DEFAULT 'Unknown',
@@ -57,6 +59,8 @@ export class DatabaseManager {
           port INTEGER NOT NULL,
           protocol TEXT NOT NULL,
           source_id TEXT NOT NULL,
+          username TEXT,
+          password TEXT,
           added_at TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_candidate_queue_added ON candidate_queue(added_at);
@@ -75,6 +79,12 @@ export class DatabaseManager {
           last_fetched_count INTEGER DEFAULT 0
         );
       `);
+
+      // Safe column migrations for existing SQLite databases
+      try { this.db.exec('ALTER TABLE proxies ADD COLUMN username TEXT;'); } catch {}
+      try { this.db.exec('ALTER TABLE proxies ADD COLUMN password TEXT;'); } catch {}
+      try { this.db.exec('ALTER TABLE candidate_queue ADD COLUMN username TEXT;'); } catch {}
+      try { this.db.exec('ALTER TABLE candidate_queue ADD COLUMN password TEXT;'); } catch {}
 
       // Auto-seed DEFAULT_SOURCES into SQLite and sync intervals
       const insertSourceStmt = this.db.prepare(`
@@ -182,8 +192,8 @@ export class DatabaseManager {
       'SELECT id FROM candidate_queue WHERE id = ?'
     );
     const insertQueueStmt = this.db.prepare(`
-      INSERT OR IGNORE INTO candidate_queue (id, ip, port, protocol, source_id, added_at)
-      VALUES ($id, $ip, $port, $protocol, $source_id, $added_at);
+      INSERT OR IGNORE INTO candidate_queue (id, ip, port, protocol, source_id, username, password, added_at)
+      VALUES ($id, $ip, $port, $protocol, $source_id, $username, $password, $added_at);
     `);
     const updateSourceStmt = this.db.prepare(`
       UPDATE proxies SET source_id = ? WHERE id = ?;
@@ -222,6 +232,8 @@ export class DatabaseManager {
           $port: item.port,
           $protocol: item.protocol,
           $source_id: item.sourceId,
+          $username: item.username || null,
+          $password: item.password || null,
           $added_at: nowIso,
         });
 
@@ -243,7 +255,7 @@ export class DatabaseManager {
   dequeueCandidates(limit = APP_CONFIG.SCREENING_BATCH_SIZE): CheckQueueItem[] {
     if (!this.db) return [];
     const rows = this.db
-      .prepare('SELECT id, ip, port, protocol, source_id as sourceId FROM candidate_queue ORDER BY added_at ASC LIMIT ?')
+      .prepare('SELECT id, ip, port, protocol, source_id as sourceId, username, password FROM candidate_queue ORDER BY added_at ASC LIMIT ?')
       .all(limit) as any[];
     return rows;
   }
@@ -303,14 +315,17 @@ export class DatabaseManager {
     const isp = geo?.isp || existing?.isp || '';
     const anonymity = result.anonymity || existing?.anonymity || 'unknown';
 
+    const username = result.username || existing?.username || null;
+    const password = result.password || existing?.password || null;
+
     const stmt = this.db.prepare(`
       INSERT INTO proxies (
         id, ip, port, protocol, status, latency_ms, country_code, country_name, flag,
-        city, isp, anonymity, source_id, success_count, fail_count, consecutive_fails,
+        city, isp, anonymity, source_id, username, password, success_count, fail_count, consecutive_fails,
         first_seen_at, last_checked_at, last_live_at
       ) VALUES (
         $id, $ip, $port, $protocol, $status, $latency_ms, $country_code, $country_name, $flag,
-        $city, $isp, $anonymity, 'manual', $success_count, $fail_count, $consecutive_fails,
+        $city, $isp, $anonymity, 'manual', $username, $password, $success_count, $fail_count, $consecutive_fails,
         $now, $now, $last_live_at
       )
       ON CONFLICT(id) DO UPDATE SET
@@ -322,6 +337,8 @@ export class DatabaseManager {
         city = excluded.city,
         isp = excluded.isp,
         anonymity = excluded.anonymity,
+        username = COALESCE(excluded.username, proxies.username),
+        password = COALESCE(excluded.password, proxies.password),
         success_count = excluded.success_count,
         fail_count = excluded.fail_count,
         consecutive_fails = excluded.consecutive_fails,
@@ -342,6 +359,8 @@ export class DatabaseManager {
       $city: city,
       $isp: isp,
       $anonymity: anonymity,
+      $username: username,
+      $password: password,
       $success_count: successCount,
       $fail_count: failCount,
       $consecutive_fails: consecutiveFails,
@@ -418,10 +437,124 @@ export class DatabaseManager {
       params.push(filter.maxLatency);
     }
 
-    query += ` ORDER BY latency_ms ASC, last_live_at DESC;`;
+    query += ` ORDER BY latency_ms ASC, last_live_at DESC`;
+
+    if (filter?.limit !== undefined) {
+      query += ` LIMIT ? OFFSET ?;`;
+      params.push(filter.limit, filter.offset || 0);
+    } else {
+      query += `;`;
+    }
 
     const rows = this.db.prepare(query).all(...params) as any[];
     return rows.map((r) => this.mapRowToRecord(r));
+  }
+
+  /**
+   * Count live proxies matching filter
+   */
+  countLiveProxies(filter?: {
+    protocol?: string;
+    country?: string;
+    maxLatency?: number;
+    ip?: string;
+    search?: string;
+    anonymity?: string;
+    sourceId?: string;
+  }): number {
+    if (!this.db) return 0;
+
+    let query = `SELECT COUNT(*) as cnt FROM proxies WHERE status = 'live'`;
+    const params: any[] = [];
+
+    if (filter?.protocol) {
+      query += ` AND protocol = ?`;
+      params.push(filter.protocol.toLowerCase());
+    }
+    if (filter?.country) {
+      query += ` AND country_code = ?`;
+      params.push(filter.country.toUpperCase());
+    }
+    if (filter?.sourceId) {
+      query += ` AND source_id = ?`;
+      params.push(filter.sourceId);
+    }
+    if (filter?.ip) {
+      query += ` AND ip LIKE ?`;
+      params.push(`%${filter.ip}%`);
+    }
+    if (filter?.anonymity) {
+      query += ` AND anonymity = ?`;
+      params.push(filter.anonymity.toLowerCase());
+    }
+    if (filter?.search) {
+      query += ` AND (ip LIKE ? OR city LIKE ? OR isp LIKE ? OR id LIKE ?)`;
+      const kw = `%${filter.search}%`;
+      params.push(kw, kw, kw, kw);
+    }
+    if (filter?.maxLatency) {
+      query += ` AND latency_ms <= ?`;
+      params.push(filter.maxLatency);
+    }
+
+    const row = this.db.prepare(query).get(...params) as { cnt: number } | undefined;
+    return row?.cnt || 0;
+  }
+
+  /**
+   * Count all proxies matching filter
+   */
+  countAllProxies(filter?: {
+    status?: string;
+    protocol?: string;
+    country?: string;
+    ip?: string;
+    search?: string;
+    maxLatency?: number;
+    anonymity?: string;
+    sourceId?: string;
+  }): number {
+    if (!this.db) return 0;
+
+    let query = 'SELECT COUNT(*) as cnt FROM proxies WHERE 1=1';
+    const params: any[] = [];
+
+    if (filter?.status) {
+      query += ' AND status = ?';
+      params.push(filter.status);
+    }
+    if (filter?.protocol) {
+      query += ' AND protocol = ?';
+      params.push(filter.protocol.toLowerCase());
+    }
+    if (filter?.country) {
+      query += ' AND country_code = ?';
+      params.push(filter.country.toUpperCase());
+    }
+    if (filter?.sourceId) {
+      query += ' AND source_id = ?';
+      params.push(filter.sourceId);
+    }
+    if (filter?.ip) {
+      query += ' AND ip LIKE ?';
+      params.push(`%${filter.ip}%`);
+    }
+    if (filter?.anonymity) {
+      query += ' AND anonymity = ?';
+      params.push(filter.anonymity.toLowerCase());
+    }
+    if (filter?.search) {
+      query += ' AND (ip LIKE ? OR city LIKE ? OR isp LIKE ? OR id LIKE ?)';
+      const kw = `%${filter.search}%`;
+      params.push(kw, kw, kw, kw);
+    }
+    if (filter?.maxLatency) {
+      query += ' AND latency_ms <= ?';
+      params.push(filter.maxLatency);
+    }
+
+    const row = this.db.prepare(query).get(...params) as { cnt: number } | undefined;
+    return row?.cnt || 0;
   }
 
   /**
@@ -478,8 +611,14 @@ export class DatabaseManager {
       params.push(filter.maxLatency);
     }
 
-    query += ' ORDER BY status ASC, latency_ms ASC LIMIT ? OFFSET ?;';
-    params.push(filter?.limit || 100, filter?.offset || 0);
+    query += ' ORDER BY status ASC, latency_ms ASC';
+
+    if (filter?.limit !== undefined) {
+      query += ' LIMIT ? OFFSET ?;';
+      params.push(filter.limit, filter.offset || 0);
+    } else {
+      query += ';';
+    }
 
     const rows = this.db.prepare(query).all(...params) as any[];
     return rows.map((r) => this.mapRowToRecord(r));
@@ -668,6 +807,8 @@ export class DatabaseManager {
       isp: row.isp,
       anonymity: row.anonymity,
       sourceId: row.source_id,
+      username: row.username || undefined,
+      password: row.password || undefined,
       successCount: row.success_count,
       failCount: row.fail_count,
       consecutiveFails: row.consecutive_fails,

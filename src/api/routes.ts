@@ -43,7 +43,7 @@ export function createApiRouter() {
     });
   });
 
-  // 2. Get Live Proxies (JSON)
+  // 2. Get Live Proxies (JSON - with pagination)
   app.get('/api/proxies', (c) => {
     const protocol = c.req.query('protocol');
     const country = c.req.query('country');
@@ -53,9 +53,25 @@ export function createApiRouter() {
     const sourceId = c.req.query('source_id') || c.req.query('source');
     const maxLatency = c.req.query('max_latency') ? Number(c.req.query('max_latency')) : undefined;
 
-    const proxies = db.getLiveProxies({ protocol, country, ip, search, anonymity, sourceId, maxLatency });
+    const limitQuery = c.req.query('limit');
+    const limit = limitQuery ? Number(limitQuery) : undefined;
+    const page = c.req.query('page') ? Math.max(1, Number(c.req.query('page'))) : undefined;
+    const offsetQuery = c.req.query('offset');
+    const offset = page && limit ? (page - 1) * limit : (offsetQuery ? Number(offsetQuery) : 0);
+
+    const total = db.countLiveProxies({ protocol, country, ip, search, anonymity, sourceId, maxLatency });
+    const proxies = db.getLiveProxies({ protocol, country, ip, search, anonymity, sourceId, maxLatency, limit, offset });
+
+    const totalPages = limit ? Math.ceil(total / limit) : 1;
+    const currentPage = page || (limit ? Math.floor(offset / limit) + 1 : 1);
+
     return c.json({
+      total,
       count: proxies.length,
+      page: currentPage,
+      totalPages,
+      limit: limit ?? total,
+      offset,
       proxies,
     });
   });
@@ -70,12 +86,24 @@ export function createApiRouter() {
     const anonymity = c.req.query('anonymity');
     const sourceId = c.req.query('source_id') || c.req.query('source');
     const maxLatency = c.req.query('max_latency') ? Number(c.req.query('max_latency')) : undefined;
-    const limit = c.req.query('limit') ? Number(c.req.query('limit')) : 100;
-    const offset = c.req.query('offset') ? Number(c.req.query('offset')) : 0;
+    const limit = c.req.query('limit') ? Number(c.req.query('limit')) : 50;
+    const page = c.req.query('page') ? Math.max(1, Number(c.req.query('page'))) : undefined;
+    const offsetQuery = c.req.query('offset');
+    const offset = page ? (page - 1) * limit : (offsetQuery ? Number(offsetQuery) : 0);
 
+    const total = db.countAllProxies({ status, protocol, country, ip, search, anonymity, sourceId, maxLatency });
     const proxies = db.getAllProxies({ status, protocol, country, ip, search, anonymity, sourceId, maxLatency, limit, offset });
+
+    const totalPages = Math.ceil(total / limit);
+    const currentPage = page || Math.floor(offset / limit) + 1;
+
     return c.json({
+      total,
       count: proxies.length,
+      page: currentPage,
+      totalPages,
+      limit,
+      offset,
       proxies,
     });
   });
@@ -91,7 +119,14 @@ export function createApiRouter() {
     const format = c.req.query('format') || 'url'; // 'url' or 'ip_port'
 
     const proxies = db.getLiveProxies({ protocol, country, ip, search, anonymity, maxLatency });
-    const lines = proxies.map((p) => (format === 'ip_port' ? `${p.ip}:${p.port}` : `${p.protocol}://${p.ip}:${p.port}`));
+    const lines = proxies.map((p) => {
+      if (format === 'ip_port') {
+        return p.username && p.password ? `${p.ip}:${p.port}:${p.username}:${p.password}` : `${p.ip}:${p.port}`;
+      }
+      return p.username && p.password
+        ? `${p.protocol}://${p.username}:${p.password}@${p.ip}:${p.port}`
+        : `${p.protocol}://${p.ip}:${p.port}`;
+    });
 
     return c.text(lines.join('\n'), 200, {
       'Content-Type': 'text/plain; charset=utf-8',
@@ -173,31 +208,67 @@ export function createApiRouter() {
       }
 
       let protocol: ProxyProtocol = 'http';
-      let clean = body.proxy;
-      if (body.proxy.includes('://')) {
-        const parts = body.proxy.split('://');
+      let clean = body.proxy.trim();
+      if (clean.includes('://')) {
+        const parts = clean.split('://');
         if (parts.length >= 2 && parts[0] && parts[1]) {
           const protoStr = parts[0].toLowerCase();
           if (protoStr === 'socks5' || protoStr === 'socks4' || protoStr === 'http' || protoStr === 'https') {
             protocol = protoStr as ProxyProtocol;
           }
-          clean = parts[1];
+          clean = parts.slice(1).join('://');
         }
       }
 
-      const segments = clean.split(':');
-      const ip = segments[0] || '';
-      const port = Number(segments[1] || 0);
+      let ip = '';
+      let port = 0;
+      let username: string | undefined;
+      let password: string | undefined;
 
-      if (!ip || !port) {
-        return c.json({ error: 'Invalid proxy format. Expected ip:port or protocol://ip:port' }, 400);
+      if (clean.includes('@')) {
+        const atParts = clean.split('@');
+        const authPart = atParts[0];
+        const hostPart = atParts.slice(1).join('@');
+        if (authPart.includes(':')) {
+          const creds = authPart.split(':');
+          username = creds[0].trim();
+          password = creds.slice(1).join(':').trim();
+        } else {
+          username = authPart.trim();
+        }
+
+        const hostSegments = hostPart.split(':');
+        if (hostSegments.length >= 2) {
+          ip = hostSegments[0].trim();
+          port = Number.parseInt(hostSegments[1].trim(), 10);
+        }
+      } else {
+        const segments = clean.split(':');
+        if (segments.length >= 2) {
+          ip = segments[0].trim();
+          port = Number.parseInt(segments[1].trim(), 10);
+          if (segments.length >= 4) {
+            username = segments[2].trim();
+            password = segments.slice(3).join(':').trim();
+          }
+        }
       }
 
+      if (!ip || !port || Number.isNaN(port) || port < 1 || port > 65535) {
+        return c.json({ error: 'Invalid proxy format. Expected ip:port, ip:port:user:pass, or protocol://user:pass@ip:port' }, 400);
+      }
+
+      const id = username && password
+        ? `${protocol}://${username}:${password}@${ip}:${port}`
+        : `${protocol}://${ip}:${port}`;
+
       const result = await socketChecker.check({
-        id: `${protocol}://${ip}:${port}`,
+        id,
         ip,
         port,
         protocol,
+        username,
+        password,
       });
 
       let geo;

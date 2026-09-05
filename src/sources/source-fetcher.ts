@@ -71,12 +71,14 @@ export class SourceFetcher {
           }
         }
 
-        if (candidateProtocols.length === 0) {
-          candidateProtocols.push(source.defaultProtocol || 'http');
-        }
+        const username = row.username || row.user ? String(row.username || row.user).trim() : undefined;
+        const password = row.password || row.pass ? String(row.password || row.pass).trim() : undefined;
 
         for (const protocol of candidateProtocols) {
-          const id = `${protocol}://${ip}:${port}`;
+          const id = username && password
+            ? `${protocol}://${username}:${password}@${ip}:${port}`
+            : `${protocol}://${ip}:${port}`;
+
           if (!seen.has(id)) {
             seen.add(id);
             items.push({
@@ -85,6 +87,8 @@ export class SourceFetcher {
               port,
               protocol,
               sourceId: source.id,
+              username,
+              password,
             });
           }
         }
@@ -98,7 +102,7 @@ export class SourceFetcher {
   }
 
   /**
-   * Parse text lines with support for various protocols
+   * Parse text lines with support for various protocols and auth credentials
    */
   private parseTextLines(text: string, source: ProxySourceConfig): CheckQueueItem[] {
     const lines = text.split(/\r?\n/);
@@ -119,28 +123,62 @@ export class SourceFetcher {
           if (protoStr === 'socks5' || protoStr === 'socks4' || protoStr === 'http' || protoStr === 'https') {
             protocol = protoStr as ProxyProtocol;
           }
-          cleanLine = parts[1];
+          cleanLine = parts.slice(1).join('://');
         }
       }
 
-      // Remove any trailing auth or path e.g. "ip:port:user:pass"
-      const segments = cleanLine.split(':');
-      if (segments.length >= 2 && segments[0] && segments[1]) {
-        const ip = segments[0].trim();
-        const port = Number.parseInt(segments[1].trim(), 10);
+      let ip = '';
+      let port = 0;
+      let username: string | undefined;
+      let password: string | undefined;
 
-        if (this.isValidIp(ip) && !Number.isNaN(port) && port > 0 && port <= 65535) {
-          const id = `${protocol}://${ip}:${port}`;
-          if (!seen.has(id)) {
-            seen.add(id);
-            items.push({
-              id,
-              ip,
-              port,
-              protocol,
-              sourceId: source.id,
-            });
+      // Check format: user:pass@ip:port
+      if (cleanLine.includes('@')) {
+        const atParts = cleanLine.split('@');
+        const authPart = atParts[0];
+        const hostPart = atParts.slice(1).join('@');
+        if (authPart.includes(':')) {
+          const creds = authPart.split(':');
+          username = creds[0].trim();
+          password = creds.slice(1).join(':').trim();
+        } else {
+          username = authPart.trim();
+        }
+
+        const hostSegments = hostPart.split(':');
+        if (hostSegments.length >= 2) {
+          ip = hostSegments[0].trim();
+          port = Number.parseInt(hostSegments[1].trim(), 10);
+        }
+      } else {
+        // Format: ip:port or ip:port:user:pass
+        const segments = cleanLine.split(':');
+        if (segments.length >= 2) {
+          ip = segments[0].trim();
+          port = Number.parseInt(segments[1].trim(), 10);
+          if (segments.length >= 4) {
+            username = segments[2].trim();
+            password = segments.slice(3).join(':').trim();
           }
+        }
+      }
+
+      if (this.isValidIp(ip) && !Number.isNaN(port) && port > 0 && port <= 65535) {
+        const id = username && password
+          ? `${protocol}://${username}:${password}@${ip}:${port}`
+          : `${protocol}://${ip}:${port}`;
+
+        if (!seen.has(id)) {
+          seen.add(id);
+          items.push({
+            id,
+            ip,
+            port,
+            protocol,
+            sourceId: source.id,
+            username,
+            password,
+          });
         }
       }
     }
