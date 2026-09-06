@@ -81,14 +81,6 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     fetchIntervalMinutes: 5,
     enabled: true,
   },
-  {
-    id: 'komutan-all',
-    name: 'Komutan Fast All-Protocols',
-    url: 'https://raw.githubusercontent.com/komutan234/Proxy-List-Free/main/proxies/all.txt',
-    format: 'text_lines',
-    fetchIntervalMinutes: 5,
-    enabled: true,
-  },
   // --- ProxyScrape Live API (Realtime) ---
   {
     id: 'proxyscrape-http',
@@ -146,14 +138,6 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     id: 'geonode-page4',
     name: 'GeoNode Live Proxies (Page 4)',
     url: 'https://proxylist.geonode.com/api/proxy-list?limit=500&page=4&sort_by=lastChecked&sort_type=desc',
-    format: 'json',
-    fetchIntervalMinutes: 15,
-    enabled: true,
-  },
-  {
-    id: 'geonode-page5',
-    name: 'GeoNode Live Proxies (Page 5)',
-    url: 'https://proxylist.geonode.com/api/proxy-list?limit=500&page=5&sort_by=lastChecked&sort_type=desc',
     format: 'json',
     fetchIntervalMinutes: 15,
     enabled: true,
