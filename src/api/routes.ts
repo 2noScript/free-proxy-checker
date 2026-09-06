@@ -227,27 +227,27 @@ export function createApiRouter() {
 
       if (clean.includes('@')) {
         const atParts = clean.split('@');
-        const authPart = atParts[0];
+        const authPart = atParts[0] || '';
         const hostPart = atParts.slice(1).join('@');
         if (authPart.includes(':')) {
           const creds = authPart.split(':');
-          username = creds[0].trim();
+          username = creds[0]?.trim();
           password = creds.slice(1).join(':').trim();
         } else {
           username = authPart.trim();
         }
 
         const hostSegments = hostPart.split(':');
-        if (hostSegments.length >= 2) {
+        if (hostSegments.length >= 2 && hostSegments[0] && hostSegments[1]) {
           ip = hostSegments[0].trim();
           port = Number.parseInt(hostSegments[1].trim(), 10);
         }
       } else {
         const segments = clean.split(':');
-        if (segments.length >= 2) {
+        if (segments.length >= 2 && segments[0] && segments[1]) {
           ip = segments[0].trim();
           port = Number.parseInt(segments[1].trim(), 10);
-          if (segments.length >= 4) {
+          if (segments.length >= 4 && segments[2] !== undefined && segments[3] !== undefined) {
             username = segments[2].trim();
             password = segments.slice(3).join(':').trim();
           }

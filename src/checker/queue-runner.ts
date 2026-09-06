@@ -10,6 +10,8 @@ export interface CheckQueueItem {
   port: number;
   protocol: ProxyProtocol;
   sourceId: string;
+  username?: string;
+  password?: string;
 }
 
 export interface QueueProgressEvent {

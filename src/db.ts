@@ -23,7 +23,7 @@ export class DatabaseManager {
 
   private pruneDedupEvents(now = Date.now()) {
     const cutoff = now - APP_CONFIG.DEDUP_COOLDOWN_MINUTES * 60 * 1000;
-    while (this.dedupEvents.length > 0 && this.dedupEvents[0].timestamp < cutoff) {
+    while (this.dedupEvents.length > 0 && this.dedupEvents[0] && this.dedupEvents[0].timestamp < cutoff) {
       this.dedupEvents.shift();
     }
   }
@@ -454,6 +454,8 @@ export class DatabaseManager {
     search?: string;
     anonymity?: string;
     sourceId?: string;
+    limit?: number;
+    offset?: number;
   }): ProxyRecord[] {
     if (!this.db) return [];
 
