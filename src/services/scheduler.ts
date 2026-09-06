@@ -75,6 +75,12 @@ export class PyramidScheduler {
   // =========================================================================
 
   async tickIngestion() {
+    // Auto-release any candidates older than BASKET_TTL_MINUTES
+    const expiredCount = db.pruneStaleCandidates();
+    if (expiredCount > 0) {
+      console.log(`⏱️ [TTL Auto-Release] Released ${expiredCount} stale candidates from basket (> ${APP_CONFIG.BASKET_TTL_MINUTES}m).`);
+    }
+
     this.sources = db.getSources();
     const now = Date.now();
 

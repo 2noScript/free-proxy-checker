@@ -631,9 +631,11 @@ export const APP_CONFIG = {
   TIMEOUT_MS: Number(process.env.TIMEOUT_MS || 1800),
   MAX_CONSECUTIVE_FAILS: Number(process.env.MAX_CONSECUTIVE_FAILS || 2),
 
-  // Producer-Consumer Basket & Deduplication
-  DEDUP_COOLDOWN_MINUTES: Number(process.env.DEDUP_COOLDOWN_MINUTES || 3),
+  // Producer-Consumer Basket & Deduplication (Sliding Window TTL)
+  DEDUP_COOLDOWN_MINUTES: Number(process.env.DEDUP_COOLDOWN_MINUTES || 15),
   SCREENING_BATCH_SIZE: Number(process.env.SCREENING_BATCH_SIZE || 600),
+  MAX_BASKET_SIZE: Number(process.env.MAX_BASKET_SIZE || 30000),
+  BASKET_TTL_MINUTES: Number(process.env.BASKET_TTL_MINUTES || 20),
 
   // High-availability Fast Echo Targets (Rotated to avoid any rate limits)
   TARGET_URLS: [

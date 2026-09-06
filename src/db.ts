@@ -173,13 +173,35 @@ export class DatabaseManager {
   }
 
   /**
-   * Enqueue raw candidates into central basket with smart deduplication and cooldown filtering
+   * Auto-release and prune stale candidates from central basket that exceeded TTL
+   */
+  pruneStaleCandidates(ttlMinutes = APP_CONFIG.BASKET_TTL_MINUTES): number {
+    if (!this.db) return 0;
+    const cutoff = new Date(Date.now() - ttlMinutes * 60 * 1000).toISOString();
+    const res = this.db.prepare('DELETE FROM candidate_queue WHERE added_at < ?').run(cutoff);
+    return res.changes;
+  }
+
+  /**
+   * Enqueue raw candidates into central basket with smart deduplication and sliding TTL auto-release
    */
   enqueueCandidates(items: CheckQueueItem[]): { enqueued: number; dedupSkipped: number } {
     if (!this.db || items.length === 0) return { enqueued: 0, dedupSkipped: 0 };
 
+    // 1. Auto-release stale items waiting longer than TTL
+    this.pruneStaleCandidates();
+
+    // 2. Capacity throttle: prevent basket from bloating beyond fast-turnover ceiling
+    const currentQueueCount = this.getCandidateQueueCount();
+    const capacityRemaining = Math.max(0, APP_CONFIG.MAX_BASKET_SIZE - currentQueueCount);
+    if (capacityRemaining <= 0) {
+      this.totalDedupFiltered += items.length;
+      return { enqueued: 0, dedupSkipped: items.length };
+    }
+
     const now = Date.now();
     const nowIso = new Date(now).toISOString();
+    // Sliding TTL Cooldown cutoff (default 15 minutes)
     const cooldownCutoff = new Date(now - APP_CONFIG.DEDUP_COOLDOWN_MINUTES * 60 * 1000).toISOString();
 
     let enqueued = 0;
@@ -201,6 +223,11 @@ export class DatabaseManager {
 
     this.db.transaction(() => {
       for (const item of items) {
+        if (enqueued >= capacityRemaining) {
+          dedupSkipped++;
+          continue;
+        }
+
         // 1. Check if already waiting in central basket
         const inQueue = checkQueueStmt.get(item.id);
         if (inQueue) {
@@ -218,14 +245,16 @@ export class DatabaseManager {
             continue;
           }
 
-          // If checked recently within cooldown window (3m), skip redundant socket test
+          // SLIDING TTL AUTO-RELEASE:
+          // If checked recently within the cooldown window (15m), skip redundant socket test.
+          // Once 15 minutes have passed, IT IS AUTOMATICALLY RELEASED and allowed to re-enter candidate screening!
           if (existing.last_checked_at && existing.last_checked_at >= cooldownCutoff) {
             dedupSkipped++;
             continue;
           }
         }
 
-        // 3. New / eligible candidate -> insert into central basket
+        // 3. New / eligible / released candidate -> insert into central basket
         const res = insertQueueStmt.run({
           $id: item.id,
           $ip: item.ip,
