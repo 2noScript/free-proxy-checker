@@ -23,7 +23,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt',
     format: 'text_lines',
     defaultProtocol: 'http',
-    fetchIntervalMinutes: 180,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -32,7 +32,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks4.txt',
     format: 'text_lines',
     defaultProtocol: 'socks4',
-    fetchIntervalMinutes: 180,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -41,7 +41,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt',
     format: 'text_lines',
     defaultProtocol: 'socks5',
-    fetchIntervalMinutes: 180,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   // --- Monosans (Hourly, Multi-Protocol) ---
@@ -50,7 +50,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     name: 'Monosans Multi-Protocol',
     url: 'https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt',
     format: 'text_lines',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   // --- Komutan234 (Fast Refresh - 2min) ---
@@ -115,7 +115,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt',
     format: 'text_lines',
     defaultProtocol: 'socks5',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   // --- Proxmint (30-min Real HTTP Verified) ---
@@ -144,7 +144,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTP_RAW.txt',
     format: 'text_lines',
     defaultProtocol: 'http',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -153,7 +153,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt',
     format: 'text_lines',
     defaultProtocol: 'https',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -162,7 +162,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS4_RAW.txt',
     format: 'text_lines',
     defaultProtocol: 'socks4',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -171,7 +171,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS5_RAW.txt',
     format: 'text_lines',
     defaultProtocol: 'socks5',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   // --- ErcinDedeoglu Proxies (Updated Hourly, 100k+ Proxies) ---
@@ -181,7 +181,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/http.txt',
     format: 'text_lines',
     defaultProtocol: 'http',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -190,7 +190,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/socks4.txt',
     format: 'text_lines',
     defaultProtocol: 'socks4',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -199,7 +199,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/socks5.txt',
     format: 'text_lines',
     defaultProtocol: 'socks5',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   // --- KangProxy / OfficialPutuID (Updated Hourly) ---
@@ -209,7 +209,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/officialputuid/KangProxy/main/http/http.txt',
     format: 'text_lines',
     defaultProtocol: 'http',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -218,7 +218,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/officialputuid/KangProxy/main/https/https.txt',
     format: 'text_lines',
     defaultProtocol: 'https',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -227,7 +227,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/officialputuid/KangProxy/main/socks4/socks4.txt',
     format: 'text_lines',
     defaultProtocol: 'socks4',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -236,7 +236,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/officialputuid/KangProxy/main/socks5/socks5.txt',
     format: 'text_lines',
     defaultProtocol: 'socks5',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   // --- dpangestuw Free-Proxy (Updated Hourly) ---
@@ -246,7 +246,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/dpangestuw/Free-Proxy/main/http_proxies.txt',
     format: 'text_lines',
     defaultProtocol: 'http',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -255,7 +255,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/dpangestuw/Free-Proxy/main/socks4_proxies.txt',
     format: 'text_lines',
     defaultProtocol: 'socks4',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -264,7 +264,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/dpangestuw/Free-Proxy/main/socks5_proxies.txt',
     format: 'text_lines',
     defaultProtocol: 'socks5',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   // --- Sunny9577 Scraper Lists ---
@@ -274,7 +274,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/sunny9577/proxy-scraper/master/generated/http_proxies.txt',
     format: 'text_lines',
     defaultProtocol: 'http',
-    fetchIntervalMinutes: 120,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -283,7 +283,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/sunny9577/proxy-scraper/master/generated/socks5_proxies.txt',
     format: 'text_lines',
     defaultProtocol: 'socks5',
-    fetchIntervalMinutes: 120,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   // --- Spys.me Live Lists (Hourly) ---
@@ -293,7 +293,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'http://spys.me/proxy.txt',
     format: 'text_lines',
     defaultProtocol: 'http',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -302,7 +302,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'http://spys.me/socks.txt',
     format: 'text_lines',
     defaultProtocol: 'socks5',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   // --- Anonym0usWork1221 (Hourly Refreshed) ---
@@ -312,7 +312,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/Anonym0usWork1221/Free-Proxies/main/proxy_files/http_proxies.txt',
     format: 'text_lines',
     defaultProtocol: 'http',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -321,7 +321,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/Anonym0usWork1221/Free-Proxies/main/proxy_files/https_proxies.txt',
     format: 'text_lines',
     defaultProtocol: 'https',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -330,7 +330,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/Anonym0usWork1221/Free-Proxies/main/proxy_files/socks4_proxies.txt',
     format: 'text_lines',
     defaultProtocol: 'socks4',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -339,7 +339,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/Anonym0usWork1221/Free-Proxies/main/proxy_files/socks5_proxies.txt',
     format: 'text_lines',
     defaultProtocol: 'socks5',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   // --- ObcbO GetProxy (Hourly Refreshed) ---
@@ -349,7 +349,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/ObcbO/getproxy/master/file/http.txt',
     format: 'text_lines',
     defaultProtocol: 'http',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -358,7 +358,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/ObcbO/getproxy/master/file/https.txt',
     format: 'text_lines',
     defaultProtocol: 'https',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -367,7 +367,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/ObcbO/getproxy/master/file/socks4.txt',
     format: 'text_lines',
     defaultProtocol: 'socks4',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -376,7 +376,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/ObcbO/getproxy/master/file/socks5.txt',
     format: 'text_lines',
     defaultProtocol: 'socks5',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   // --- HideIP.me / Zloi-user (Hourly Verified) ---
@@ -386,7 +386,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/zloi-user/hideip.me/main/http.txt',
     format: 'text_lines',
     defaultProtocol: 'http',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -395,7 +395,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/zloi-user/hideip.me/main/https.txt',
     format: 'text_lines',
     defaultProtocol: 'https',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -404,7 +404,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/zloi-user/hideip.me/main/socks4.txt',
     format: 'text_lines',
     defaultProtocol: 'socks4',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -413,7 +413,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/zloi-user/hideip.me/main/socks5.txt',
     format: 'text_lines',
     defaultProtocol: 'socks5',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   // --- Vakhov Fresh Proxy List (Hourly Automated) ---
@@ -423,7 +423,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/vakhov/fresh-proxy-list/master/http.txt',
     format: 'text_lines',
     defaultProtocol: 'http',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -432,7 +432,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/vakhov/fresh-proxy-list/master/socks4.txt',
     format: 'text_lines',
     defaultProtocol: 'socks4',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -441,7 +441,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/vakhov/fresh-proxy-list/master/socks5.txt',
     format: 'text_lines',
     defaultProtocol: 'socks5',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   // --- Tuanminpay Live Proxy (Active Multi-Protocol) ---
@@ -451,7 +451,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/tuanminpay/live-proxy/master/http.txt',
     format: 'text_lines',
     defaultProtocol: 'http',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -460,7 +460,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/tuanminpay/live-proxy/master/socks4.txt',
     format: 'text_lines',
     defaultProtocol: 'socks4',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -469,7 +469,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/tuanminpay/live-proxy/master/socks5.txt',
     format: 'text_lines',
     defaultProtocol: 'socks5',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   // --- ALIILAPRO Proxy (Multi-Protocol) ---
@@ -479,7 +479,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/http.txt',
     format: 'text_lines',
     defaultProtocol: 'http',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -488,7 +488,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/socks4.txt',
     format: 'text_lines',
     defaultProtocol: 'socks4',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -497,7 +497,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/socks5.txt',
     format: 'text_lines',
     defaultProtocol: 'socks5',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   // --- Elliottophellia Yakumo (Checked Global Proxies) ---
@@ -507,7 +507,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/elliottophellia/yakumo/master/results/http/global/http_checked.txt',
     format: 'text_lines',
     defaultProtocol: 'http',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -516,7 +516,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/elliottophellia/yakumo/master/results/socks4/global/socks4_checked.txt',
     format: 'text_lines',
     defaultProtocol: 'socks4',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
   {
@@ -525,7 +525,7 @@ export const DEFAULT_SOURCES: ProxySourceConfig[] = [
     url: 'https://raw.githubusercontent.com/elliottophellia/yakumo/master/results/socks5/global/socks5_checked.txt',
     format: 'text_lines',
     defaultProtocol: 'socks5',
-    fetchIntervalMinutes: 60,
+    fetchIntervalMinutes: 30,
     enabled: true,
   },
 ];
