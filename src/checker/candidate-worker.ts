@@ -79,6 +79,7 @@ export class CandidateWorker {
       queueCount: db.getCandidateQueueCount(),
       activeTask: this.isProcessing ? (ingestionRunner.getCurrentJobName() || 'Screening Basket') : null,
       dedupSavedTotal: db.getDedupSavedCount(),
+      dedupLifetimeTotal: db.getDedupLifetimeTotal(),
     };
   }
 }

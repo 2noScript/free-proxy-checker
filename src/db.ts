@@ -7,9 +7,25 @@ import type { CheckQueueItem, CheckResult, GeoInfo, ProxyRecord, ProxySourceConf
 export class DatabaseManager {
   private db: SqliteDatabase | null = null;
   private totalDedupFiltered: number = 0;
+  private dedupEvents: { timestamp: number; count: number }[] = [];
 
   constructor() {
     this.init();
+  }
+
+  private recordDedup(count: number) {
+    if (count <= 0) return;
+    const now = Date.now();
+    this.totalDedupFiltered += count;
+    this.dedupEvents.push({ timestamp: now, count });
+    this.pruneDedupEvents(now);
+  }
+
+  private pruneDedupEvents(now = Date.now()) {
+    const cutoff = now - APP_CONFIG.DEDUP_COOLDOWN_MINUTES * 60 * 1000;
+    while (this.dedupEvents.length > 0 && this.dedupEvents[0].timestamp < cutoff) {
+      this.dedupEvents.shift();
+    }
   }
 
   private init() {
@@ -195,7 +211,7 @@ export class DatabaseManager {
     const currentQueueCount = this.getCandidateQueueCount();
     const capacityRemaining = Math.max(0, APP_CONFIG.MAX_BASKET_SIZE - currentQueueCount);
     if (capacityRemaining <= 0) {
-      this.totalDedupFiltered += items.length;
+      this.recordDedup(items.length);
       return { enqueued: 0, dedupSkipped: items.length };
     }
 
@@ -274,7 +290,7 @@ export class DatabaseManager {
       }
     })();
 
-    this.totalDedupFiltered += dedupSkipped;
+    this.recordDedup(dedupSkipped);
     return { enqueued, dedupSkipped };
   }
 
@@ -312,9 +328,17 @@ export class DatabaseManager {
   }
 
   /**
-   * Get total deduplication socket tests saved
+   * Get active deduplication socket tests saved within rolling window (15m TTL)
    */
   getDedupSavedCount(): number {
+    this.pruneDedupEvents();
+    return this.dedupEvents.reduce((acc, curr) => acc + curr.count, 0);
+  }
+
+  /**
+   * Get lifetime total deduplication count since server startup
+   */
+  getDedupLifetimeTotal(): number {
     return this.totalDedupFiltered;
   }
 
@@ -699,6 +723,7 @@ export class DatabaseManager {
       byCountry,
       candidateQueueCount: this.getCandidateQueueCount(),
       dedupSavedTotal: this.getDedupSavedCount(),
+      dedupLifetimeTotal: this.getDedupLifetimeTotal(),
     };
   }
 

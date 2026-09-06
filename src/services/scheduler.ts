@@ -245,6 +245,7 @@ export class PyramidScheduler {
         activeTask: workerStatus.activeTask,
         queueSize: workerStatus.queueCount,
         dedupSavedTotal: workerStatus.dedupSavedTotal,
+        dedupLifetimeTotal: workerStatus.dedupLifetimeTotal,
         fetchingSources: Array.from(this.activeFetchingSources),
       },
       maintenance: {
