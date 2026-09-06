@@ -537,13 +537,13 @@ export const APP_CONFIG = {
 
   // Pyramid Lifecycle & Concurrency
   MAINTENANCE_INTERVAL_MINUTES: Number(process.env.MAINTENANCE_INTERVAL_MINUTES || 3),
-  CONCURRENCY_LIMIT: Number(process.env.CONCURRENCY_LIMIT || 100),
-  TIMEOUT_MS: Number(process.env.TIMEOUT_MS || 2500),
+  CONCURRENCY_LIMIT: Number(process.env.CONCURRENCY_LIMIT || 300),
+  TIMEOUT_MS: Number(process.env.TIMEOUT_MS || 1800),
   MAX_CONSECUTIVE_FAILS: Number(process.env.MAX_CONSECUTIVE_FAILS || 2),
 
   // Producer-Consumer Basket & Deduplication
   DEDUP_COOLDOWN_MINUTES: Number(process.env.DEDUP_COOLDOWN_MINUTES || 3),
-  SCREENING_BATCH_SIZE: Number(process.env.SCREENING_BATCH_SIZE || 250),
+  SCREENING_BATCH_SIZE: Number(process.env.SCREENING_BATCH_SIZE || 600),
 
   // High-availability Fast Echo Targets (Rotated to avoid any rate limits)
   TARGET_URLS: [

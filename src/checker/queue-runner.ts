@@ -94,7 +94,7 @@ export class QueueRunner {
           db.updateCheckResult(result, geo);
           checked++;
 
-          if (checked % 5 === 0 || checked === total) {
+          if (checked % 20 === 0 || checked === total) {
             this.notifyProgress({
               stream: this.streamType,
               jobName: this.currentJobName,
